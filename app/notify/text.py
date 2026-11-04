@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 from html import escape as _html_escape
+from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
 from ..models import Incident, Status
@@ -15,6 +16,26 @@ _CMD_RE = re.compile(r"(^|[\s(\[«;])/(?=[A-Za-z0-9_])")
 
 def escape(text: str) -> str:
     return _CMD_RE.sub(lambda m: m.group(1) + "/\u2060", _html_escape(text))
+
+
+_URL_RE = re.compile(r"https?://[^\s<>\"']+")
+
+
+def escape_with_links(text: str) -> str:
+    """Как escape, но URL становятся короткой ссылкой «🔗 хост».
+
+    Длинные адреса вроде generatorURL Prometheus Telegram иначе режет на куски
+    и подсвечивает обрывки (`g0.tab`) как отдельные домены.
+    """
+    out, pos = [], 0
+    for m in _URL_RE.finditer(text):
+        url = m.group(0).rstrip(".,;:)»")
+        out.append(escape(text[pos : m.start()]))
+        host = urlsplit(url).netloc or url
+        out.append(f'<a href="{_html_escape(url, quote=True)}">🔗 {_html_escape(host)}</a>')
+        pos = m.start() + len(url)
+    out.append(escape(text[pos:]))
+    return "".join(out)
 
 SEVERITY = {"critical": "🔴 Critical", "warning": "🟠 Warning", "info": "🔵 Info"}
 STATUS = {
@@ -44,7 +65,7 @@ def telegram_html(incident: Incident, service_name: str, public_url: str, reason
     lines.append(f"{SEVERITY.get(incident.severity, incident.severity)} · {escape(service_name)} · {incident.source}")
     if incident.details:
         details = incident.details if len(incident.details) <= 700 else incident.details[:700] + "…"
-        lines.append(f"<blockquote>{escape(details)}</blockquote>")
+        lines.append(f"<blockquote>{escape_with_links(details)}</blockquote>")
     status = STATUS.get(incident.status, incident.status)
     if incident.status == Status.ACKNOWLEDGED:
         status += f": {escape(incident.acknowledged_by or '')}"

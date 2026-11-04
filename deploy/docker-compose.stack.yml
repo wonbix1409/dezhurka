@@ -31,6 +31,9 @@ services:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.retention.time=15d
       - --web.enable-lifecycle
+      # Ссылки «график» в алертах: Prometheus открыт только локально,
+      # смотреть через туннель ssh -L 9090:127.0.0.1:9090 (подсказку печатает setup.sh)
+      - --web.external-url=http://localhost:9090/
     volumes:
       - ./prometheus:/etc/prometheus:ro
       - prometheus-data:/prometheus
