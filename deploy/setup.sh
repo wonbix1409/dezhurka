@@ -89,6 +89,11 @@ if [[ ! -f config.yaml ]]; then
   USER_NAME="$(printf '%s' "$USER_NAME" | tr -d '"\\|&')"
   sed -e "s|__USER_NAME__|\"${USER_NAME}\"|" -e "s|__TIMEZONE__|${TZ_NAME}|g" deploy/config.demo.yaml > config.yaml
 fi
+# Часовой пояс стенда для Zabbix (время в сообщениях) — берём из config.yaml
+if ! grep -q '^STACK_TZ=' .env; then
+  STACK_TZ="$(sed -n 's/^[[:space:]]*timezone:[[:space:]]*\([A-Za-z0-9_/+-]*\).*/\1/p' config.yaml | head -1)"
+  echo "STACK_TZ=${STACK_TZ:-Europe/Moscow}" >> .env
+fi
 
 sed "s|__INTEGRATION_KEY__|${DEZHURKA_KEY_DEMO}|" deploy/alertmanager/alertmanager.yml.template \
   > deploy/alertmanager/alertmanager.yml

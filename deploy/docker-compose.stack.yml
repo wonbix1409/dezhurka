@@ -96,6 +96,7 @@ services:
       POSTGRES_USER: zabbix
       POSTGRES_PASSWORD: ${ZABBIX_DB_PASSWORD}
       POSTGRES_DB: zabbix
+      TZ: ${STACK_TZ:-Europe/Moscow}   # {EVENT.TIME} в сообщениях
 
   zabbix-web:
     profiles: [zabbix]
@@ -108,7 +109,7 @@ services:
       POSTGRES_USER: zabbix
       POSTGRES_PASSWORD: ${ZABBIX_DB_PASSWORD}
       POSTGRES_DB: zabbix
-      PHP_TZ: Europe/Moscow
+      PHP_TZ: ${STACK_TZ:-Europe/Moscow}
     ports:
       - "8080:8080"
 
