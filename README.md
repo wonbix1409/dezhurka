@@ -86,10 +86,19 @@ Contact point → тип **Webhook**, URL `.../ingest/<integration_key>/grafana`
 
 ### Zabbix
 
-1. Administration → Media types → Create, тип **Webhook**, скрипт из
-   [`contrib/zabbix/dezhurka_webhook.js`](contrib/zabbix/dezhurka_webhook.js), параметры перечислены в его шапке.
-2. Создайте пользователя-«получателя» с этим медиа-типом.
-3. В Trigger action включите Operations **и** Recovery operations — тогда инцидент закроется сам.
+Одной командой через Zabbix API (Python 3.8+, без зависимостей; проверено на Zabbix 7.0):
+
+```bash
+python3 contrib/zabbix/setup_zabbix.py --zabbix-url https://zabbix.example.ru \
+  --webhook-url https://dezhurka.example.ru/api/v1/ingest/<integration_key>/zabbix
+```
+
+Скрипт создаёт медиа-тип «Дежурка», канал у вашего пользователя и действие с Operations и
+Recovery operations (инцидент закроется сам). Повторный запуск обновляет, а не дублирует.
+
+Вручную: Administration → Media types → Create, тип **Webhook**, скрипт
+[`contrib/zabbix/dezhurka_webhook.js`](contrib/zabbix/dezhurka_webhook.js) с параметрами из его шапки;
+медиа-тип пользователю-получателю; в Trigger action — Operations **и** Recovery operations.
 
 ### Свои скрипты и cron
 

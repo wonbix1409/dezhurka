@@ -120,8 +120,8 @@ EOF
 if [[ $WITH_ZABBIX -eq 1 ]]; then
 cat <<EOF
  Zabbix      http://<ip>:8080   Admin / zabbix  ← СРАЗУ смените пароль
-             вебхук для медиа-типа:
-             http://dezhurka:8000/api/v1/ingest/${DEZHURKA_KEY_DEMO}/zabbix
+             подключить к Дежурке (медиа-тип, получатель, действие):
+             sudo bash deploy/zabbix-connect.sh
 EOF
 fi
 cat <<EOF
