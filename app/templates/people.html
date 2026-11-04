@@ -15,7 +15,17 @@
       {% if u.telegram_chat_id %}<span class="pill st-resolved">задан в конфиге</span>
       {% elif link %}<span class="pill st-resolved">привязан</span> <span class="muted">{{ '@' ~ link.tg_username if link.tg_username else '' }}</span>
       {% else %}<span class="pill st-triggered">не привязан</span>{% endif %}
-      {% if deep and not u.telegram_chat_id %}<div style="margin-top:6px"><code>{{ deep }}</code></div>{% endif %}
+      {% if deep and not u.telegram_chat_id %}
+        {% if link %}
+        <details style="margin-top:6px"><summary class="muted">ссылка для перепривязки</summary>
+          <div style="margin-top:6px"><a class="btn" href="{{ deep }}" target="_blank" rel="noopener noreferrer">Открыть в Telegram</a></div>
+          <div style="margin-top:6px"><code>{{ deep }}</code></div>
+        </details>
+        {% else %}
+        <div style="margin-top:8px"><a class="btn" href="{{ deep }}" target="_blank" rel="noopener noreferrer">Открыть в Telegram</a></div>
+        <div style="margin-top:6px"><code>{{ deep }}</code></div>
+        {% endif %}
+      {% endif %}
     </td>
   </tr>
   {% endfor %}
