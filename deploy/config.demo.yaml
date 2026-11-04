@@ -1,0 +1,44 @@
+# Конфиг демо-стенда: один человек, один график, один сервис.
+# Добавляйте коллег в users и rotation.users — и перезапускайте: docker compose ... restart dezhurka
+
+settings:
+  public_url: ${DEZHURKA_PUBLIC_URL}
+  secret_key: ${DEZHURKA_SECRET_KEY}
+  admin_password: ${DEZHURKA_ADMIN_PASSWORD}
+  timezone: __TIMEZONE__
+
+telegram:
+  bot_token: ${DEZHURKA_TELEGRAM_TOKEN}
+
+smtp:
+  host: ${DEZHURKA_SMTP_HOST:-}
+  port: 587
+  username: ${DEZHURKA_SMTP_USER:-}
+  password: ${DEZHURKA_SMTP_PASSWORD:-}
+  sender: ${DEZHURKA_SMTP_FROM:-}
+
+users:
+  - id: me
+    name: __USER_NAME__
+
+schedules:
+  - id: main
+    name: Основной
+    timezone: __TIMEZONE__
+    rotation:
+      start: 2026-11-02T10:00:00
+      shift_hours: 168
+      users: [me]
+
+escalation_policies:
+  - id: default
+    repeat: 2
+    steps:
+      - targets: [{schedule: main}]
+        escalate_after_min: 5
+
+services:
+  - id: demo
+    name: Демо-стенд
+    escalation_policy: default
+    integration_key: ${DEZHURKA_KEY_DEMO}

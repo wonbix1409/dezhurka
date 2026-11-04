@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% set active = 'people' %}
+{% block body %}
+<h1>Люди и каналы связи</h1>
+{% if not bot %}<div class="err">Telegram выключен: укажите telegram.bot_token в конфиге.</div>{% endif %}
+<p class="muted">Чтобы получать инциденты в Telegram, человек открывает свою ссылку и нажимает «Старт». Ссылка личная — не пересылайте её другим.</p>
+<div class="card wrap">
+<table>
+  <tr><th>Имя</th><th>Почта</th><th>Telegram</th></tr>
+  {% for u, link, deep in rows %}
+  <tr>
+    <td><b>{{ u.name }}</b> <span class="id">{{ u.id }}</span></td>
+    <td>{{ u.email or '—' }}</td>
+    <td>
+      {% if u.telegram_chat_id %}<span class="pill st-resolved">задан в конфиге</span>
+      {% elif link %}<span class="pill st-resolved">привязан</span> <span class="muted">{{ '@' ~ link.tg_username if link.tg_username else '' }}</span>
+      {% else %}<span class="pill st-triggered">не привязан</span>{% endif %}
+      {% if deep and not u.telegram_chat_id %}<div style="margin-top:6px"><code>{{ deep }}</code></div>{% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+</div>
+{% endblock %}

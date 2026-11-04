@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Дежурка{% endblock %}</title>
+<style>
+  :root {
+    --bg: #f6f5f2; --panel: #ffffff; --ink: #1c1b19; --muted: #6b6862; --line: #e4e1da;
+    --red: #c4321c; --red-bg: #fbe9e5; --amber: #a86400; --amber-bg: #fdf1dc;
+    --green: #26773f; --green-bg: #e3f3e7; --blue: #2753a8; --accent: #1c1b19;
+    --mono: ui-monospace, "JetBrains Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141413; --panel: #1d1c1a; --ink: #ecebe7; --muted: #9b978f; --line: #2f2d2a;
+      --red: #ff7b63; --red-bg: #3a1d17; --amber: #f2b45a; --amber-bg: #372a14;
+      --green: #6fcf8a; --green-bg: #17301f; --blue: #8fb2ff; --accent: #ecebe7;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.5 -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  a { color: inherit; }
+  header { border-bottom: 1px solid var(--line); background: var(--panel); }
+  .bar { max-width: 1080px; margin: 0 auto; padding: 14px 16px; display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
+  .logo { font-family: var(--mono); font-weight: 700; letter-spacing: -.02em; text-decoration: none; font-size: 17px; }
+  .logo span { color: var(--red); }
+  nav { display: flex; gap: 18px; }
+  nav a { text-decoration: none; color: var(--muted); }
+  nav a.on, nav a:hover { color: var(--ink); }
+  main { max-width: 1080px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 22px; margin: 0 0 16px; letter-spacing: -.01em; }
+  h2 { font-size: 15px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 32px 0 10px; font-weight: 600; }
+  h2 .id { text-transform: none; letter-spacing: 0; font-weight: 400; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .stat { padding: 14px 16px; }
+  .stat .k { color: var(--muted); font-size: 13px; }
+  .stat .v { font-size: 22px; font-weight: 600; margin-top: 2px; }
+  .stat .s { color: var(--muted); font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+  tr:last-child td { border-bottom: 0; }
+  .id { font-family: var(--mono); color: var(--muted); white-space: nowrap; }
+  .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+  .st-triggered { background: var(--red-bg); color: var(--red); }
+  .st-acknowledged { background: var(--amber-bg); color: var(--amber); }
+  .st-resolved { background: var(--green-bg); color: var(--green); }
+  .muted { color: var(--muted); }
+  .empty { padding: 28px; text-align: center; color: var(--muted); }
+  button, .btn { font: inherit; padding: 7px 14px; border-radius: 8px; border: 1px solid var(--line);
+                 background: var(--panel); color: var(--ink); cursor: pointer; text-decoration: none; display: inline-block; }
+  button.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  button.small { padding: 3px 10px; font-size: 13px; }
+  select, input { font: inherit; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
+  form.inline { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .err { background: var(--red-bg); color: var(--red); padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; }
+  pre { font-family: var(--mono); font-size: 13px; white-space: pre-wrap; word-break: break-word; margin: 0; }
+  code { font-family: var(--mono); font-size: 13px; background: var(--bg); padding: 1px 6px; border-radius: 5px; word-break: break-all; }
+  .timeline { list-style: none; margin: 0; padding: 0; }
+  .timeline li { padding: 10px 14px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 110px 1fr; gap: 12px; }
+  .timeline li:last-child { border-bottom: 0; }
+  .wrap { overflow-x: auto; }
+  @media (max-width: 640px) { .hide-sm { display: none; } .timeline li { grid-template-columns: 1fr; gap: 2px; } }
+</style>
+</head>
+<body>
+<header><div class="bar">
+  <a class="logo" href="/">дежурка<span>.</span></a>
+  <nav>
+    <a href="/" class="{% if active == 'index' %}on{% endif %}">Инциденты</a>
+    <a href="/schedules" class="{% if active == 'schedules' %}on{% endif %}">Графики</a>
+    <a href="/people" class="{% if active == 'people' %}on{% endif %}">Люди</a>
+    <a href="/api/docs">API</a>
+  </nav>
+</div></header>
+<main>{% block body %}{% endblock %}</main>
+</body>
+</html>

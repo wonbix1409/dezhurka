@@ -1,0 +1,61 @@
+# Конфигурация «Дежурки». Секреты подставляются из переменных окружения: ${VAR} или ${VAR:-по_умолчанию}.
+# Файл удобно хранить в git рядом с остальной инфраструктурой.
+
+settings:
+  public_url: ${DEZHURKA_PUBLIC_URL:-http://localhost:8000}   # адрес панели, попадает в ссылки уведомлений
+  secret_key: ${DEZHURKA_SECRET_KEY}                          # длинная случайная строка: openssl rand -hex 32
+  admin_password: ${DEZHURKA_ADMIN_PASSWORD}                  # пароль панели (логин любой)
+  database_url: ${DEZHURKA_DATABASE_URL:-sqlite+aiosqlite:///./data/dezhurka.db}
+  timezone: Europe/Moscow
+  tick_seconds: 10
+
+telegram:
+  bot_token: ${DEZHURKA_TELEGRAM_TOKEN}   # токен от @BotFather
+
+smtp:
+  host: ${DEZHURKA_SMTP_HOST:-}
+  port: 587
+  username: ${DEZHURKA_SMTP_USER:-}
+  password: ${DEZHURKA_SMTP_PASSWORD:-}
+  sender: ${DEZHURKA_SMTP_FROM:-}
+  starttls: true
+
+users:
+  - id: ivan
+    name: Иван Петров
+    email: ivan@example.ru
+  - id: maria
+    name: Мария Смирнова
+    email: maria@example.ru
+  - id: oleg
+    name: Олег Кузнецов
+    email: oleg@example.ru
+  - id: lead
+    name: Анна (тимлид)
+    email: anna@example.ru
+
+schedules:
+  - id: sre-primary
+    name: SRE, основной
+    timezone: Europe/Moscow
+    rotation:
+      start: 2026-11-02T10:00:00   # первая смена начинается в понедельник в 10:00
+      shift_hours: 168             # неделя; 24 — посуточно, 12 — день/ночь
+      users: [ivan, maria, oleg]
+    overrides: []                  # постоянные подмены; разовые удобнее добавлять в панели
+
+escalation_policies:
+  - id: sre
+    repeat: 2          # если никто не взял — пройти шаги заново ещё 2 раза
+    steps:
+      - targets: [{schedule: sre-primary}]
+        escalate_after_min: 5
+      - targets: [{user: lead}]
+        escalate_after_min: 10
+
+services:
+  - id: payments-api
+    name: Платёжный API
+    escalation_policy: sre
+    integration_key: ${DEZHURKA_KEY_PAYMENTS}   # секрет в URL вебхука: openssl rand -hex 16
+    # team_chat_id: -1001234567890            # общий чат команды; id подскажет бот по /start в чате

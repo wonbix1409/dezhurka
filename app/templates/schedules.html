@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% set active = 'schedules' %}
+{% block body %}
+<h1>Графики дежурств</h1>
+{% if error %}<div class="err">{{ error }}</div>{% endif %}
+{% if not data %}<div class="card empty">Графики не настроены — добавьте schedules в config.yaml.</div>{% endif %}
+{% for sch, current, shifts, overrides in data %}
+<h2>{{ sch.name or sch.id }} <span class="id">· {{ sch.timezone }} · смена {{ sch.rotation.shift_hours|int }} ч</span></h2>
+<div class="card wrap">
+  <table>
+    <tr><th>Кто</th><th>С</th><th>По</th></tr>
+    {% if current.is_override %}
+    <tr><td><b>{{ config.user(current.user_id).name }}</b> <span class="pill st-acknowledged">подмена сейчас</span></td>
+      <td>{{ fmt(current.start, sch.timezone) }}</td><td>{{ fmt(current.end, sch.timezone) }}</td></tr>
+    {% endif %}
+    {% for s in shifts %}
+    <tr><td>{% if loop.first and not current.is_override %}<b>{{ config.user(s.user_id).name }}</b> <span class="pill st-resolved">сейчас</span>{% else %}{{ config.user(s.user_id).name }}{% endif %}</td>
+      <td>{{ fmt(s.start, sch.timezone) }}</td><td>{{ fmt(s.end, sch.timezone) }}</td></tr>
+    {% endfor %}
+  </table>
+</div>
+
+<div class="card" style="padding:14px; margin-top:12px">
+  <div style="font-weight:600; margin-bottom:8px">Подмены</div>
+  {% for o in overrides %}
+  <form class="inline" method="post" action="/schedules/{{ sch.id }}/overrides/{{ o.id }}/delete" style="margin-bottom:6px">
+    <span>{{ config.user(o.user_id).name if config.user(o.user_id) else o.user_id }}: {{ fmt(o.start, sch.timezone) }} — {{ fmt(o.end, sch.timezone) }}</span>
+    <button class="small">Удалить</button>
+  </form>
+  {% else %}<div class="muted" style="margin-bottom:8px">Активных подмен нет.</div>{% endfor %}
+  <form class="inline" method="post" action="/schedules/{{ sch.id }}/overrides">
+    <select name="user_id" aria-label="Кто подменяет">{% for u in config.users %}<option value="{{ u.id }}">{{ u.name }}</option>{% endfor %}</select>
+    <input type="datetime-local" name="start" required aria-label="Начало">
+    <input type="datetime-local" name="end" required aria-label="Конец">
+    <button class="primary">Добавить подмену</button>
+  </form>
+  <div class="muted" style="font-size:13px; margin-top:6px">Время — в поясе графика ({{ sch.timezone }}).</div>
+</div>
+{% endfor %}
+{% endblock %}

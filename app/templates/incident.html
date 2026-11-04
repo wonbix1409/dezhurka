@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% set active = 'index' %}
+{% block title %}#{{ inc.id }} {{ inc.title }} — Дежурка{% endblock %}
+{% block body %}
+{% if error %}<div class="err">{{ error }}</div>{% endif %}
+<div class="muted id">#{{ inc.id }} · {{ service.name if service else inc.service_id }} · {{ inc.source }}</div>
+<h1>{{ inc.title }}</h1>
+<p><span class="pill st-{{ inc.status }}">{{ STATUS[inc.status] }}</span>
+  &nbsp;<span class="muted">{{ SEVERITY.get(inc.severity, inc.severity) }} · начался {{ fmt(inc.created_at) }}{% if inc.alert_count > 1 %} · повторов алерта {{ inc.alert_count }}{% endif %}</span></p>
+
+{% if inc.status != 'resolved' %}
+<form class="inline card" style="padding:12px 14px" method="post">
+  <label class="muted" for="actor">Действую как</label>
+  <select id="actor" name="actor">{% for u in config.users %}<option value="{{ u.id }}">{{ u.name }}</option>{% endfor %}</select>
+  {% if inc.status == 'triggered' %}<button class="primary" formaction="/incidents/{{ inc.id }}/ack">Беру в работу</button>{% endif %}
+  <button formaction="/incidents/{{ inc.id }}/resolve">Решено</button>
+</form>
+{% endif %}
+
+{% if inc.details %}
+<h2>Подробности</h2>
+<div class="card" style="padding:14px"><pre>{{ inc.details }}</pre></div>
+{% endif %}
+
+{% if inc.labels %}
+<h2>Метки</h2>
+<div class="card" style="padding:12px 14px">{% for k, v in inc.labels.items() %}<code>{{ k }}={{ v }}</code> {% endfor %}</div>
+{% endif %}
+
+<h2>Хронология</h2>
+<ul class="timeline card">
+  {% for e in inc.events %}
+  <li><span class="muted">{{ fmt(e.at) }}</span><span>{{ e.message }}{% if e.actor %} — <b>{{ e.actor }}</b>{% endif %}</span></li>
+  {% endfor %}
+</ul>
+{% endblock %}
