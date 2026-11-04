@@ -270,4 +270,7 @@ def create_app(config: Config | None = None, start_background: bool = True) -> F
 
 def app_factory() -> FastAPI:  # для uvicorn --factory
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    # httpx на INFO пишет полный URL запроса, а в URL Bot API лежит токен бота
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
     return create_app()

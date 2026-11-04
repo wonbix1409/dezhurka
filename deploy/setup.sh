@@ -28,6 +28,16 @@ if ! command -v docker >/dev/null || ! docker compose version >/dev/null 2>&1; t
 fi
 command -v openssl >/dev/null || apt-get install -y -qq openssl >/dev/null
 
+# Демон должен работать до проверки Docker Hub, иначе проверка ложно падает.
+# docker.service стартует с -H fd:// и без docker.socket не поднимается.
+systemctl unmask docker.socket docker.service >/dev/null 2>&1 || true
+systemctl reset-failed docker.service >/dev/null 2>&1 || true
+systemctl enable --now docker.socket >/dev/null 2>&1 || true
+systemctl enable --now docker.service >/dev/null 2>&1 || true
+for _ in $(seq 1 30); do docker info >/dev/null 2>&1 && break; sleep 1; done
+docker info >/dev/null 2>&1 \
+  || { echo "Docker не запустился. Смотрите: journalctl -u docker.service -n 50" >&2; exit 1; }
+
 # Docker Hub ограничивает доступ из РФ — если образы не тянутся, включаем зеркало
 if ! timeout 60 docker pull -q hello-world >/dev/null 2>&1; then
   say "Docker Hub недоступен, включаю зеркало mirror.gcr.io"
@@ -67,11 +77,16 @@ set -a; source .env; set +a
 if [[ ! -f config.yaml ]]; then
   read -rp "Ваше имя для графика дежурств [Дежурный]: " USER_NAME
   USER_NAME="${USER_NAME:-Дежурный}"
-  read -rp "Часовой пояс [Europe/Moscow]: " TZ_NAME
-  TZ_NAME="${TZ_NAME:-Europe/Moscow}"
+  while :; do
+    read -rp "Часовой пояс IANA, например Europe/Moscow или Asia/Yekaterinburg [Europe/Moscow]: " TZ_NAME
+    TZ_NAME="${TZ_NAME:-Europe/Moscow}"
+    TZ_NAME="$(printf '%s' "$TZ_NAME" | tr -cd 'A-Za-z0-9_/+-')"
+    # «UTC+5» и подобное не годится: нужен ключ из базы часовых поясов
+    [[ -n "$TZ_NAME" && "$TZ_NAME" != *..* && -f "/usr/share/zoneinfo/$TZ_NAME" ]] && break
+    echo "Не знаю часовой пояс «$TZ_NAME». Нужен формат Регион/Город, список: timedatectl list-timezones" >&2
+  done
   # Убираем символы, которые сломали бы YAML или sed; имя берём в кавычки
   USER_NAME="$(printf '%s' "$USER_NAME" | tr -d '"\\|&')"
-  TZ_NAME="$(printf '%s' "$TZ_NAME" | tr -cd 'A-Za-z0-9_/+-')"
   sed -e "s|__USER_NAME__|\"${USER_NAME}\"|" -e "s|__TIMEZONE__|${TZ_NAME}|g" deploy/config.demo.yaml > config.yaml
 fi
 

@@ -9,6 +9,7 @@ import asyncio
 import hashlib
 import hmac
 import logging
+import re
 from html import escape
 
 from sqlalchemy import select
@@ -19,6 +20,13 @@ from .notify.telegram import TelegramAPI
 from .notify.text import STATUS, fmt_time
 
 log = logging.getLogger("dezhurka.bot")
+
+_TOKEN_RE = re.compile(r"\d{5,}:[A-Za-z0-9_-]{20,}")
+
+
+def _redact(e: BaseException) -> str:
+    """Текст ошибки без токена бота (он бывает в URL Bot API)."""
+    return _TOKEN_RE.sub("<TOKEN>", f"{type(e).__name__}: {e}")
 
 HELP = (
     "Я бот дежурств «Дежурка».\n\n"
@@ -209,21 +217,40 @@ class Bot:
                 s.add(KV(key="tg_offset", value=str(offset)))
             await s.commit()
 
+    async def _connect(self) -> bool:
+        """getMe + команды; при сбое повторяем с паузой до 5 минут, пока не остановят."""
+        delay = 5
+        while not self._stop.is_set():
+            try:
+                me = await self.api.call("getMe")
+                self.username = me.get("username")
+                await self.api.call(
+                    "setMyCommands",
+                    commands=[
+                        {"command": "oncall", "description": "Кто сейчас дежурит"},
+                        {"command": "open", "description": "Открытые инциденты"},
+                        {"command": "whoami", "description": "Привязка аккаунта"},
+                    ],
+                )
+                log.info("Telegram-бот @%s запущен", self.username)
+                return True
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                log.error(
+                    "Не удалось подключиться к Telegram (%s) — проверьте bot_token и доступ к api.telegram.org; "
+                    "повтор через %s с",
+                    _redact(e), delay,
+                )
+                try:
+                    await asyncio.wait_for(self._stop.wait(), timeout=delay)
+                except asyncio.TimeoutError:
+                    pass
+                delay = min(delay * 2, 300)
+        return False
+
     async def run(self) -> None:
-        try:
-            me = await self.api.call("getMe")
-            self.username = me.get("username")
-            await self.api.call(
-                "setMyCommands",
-                commands=[
-                    {"command": "oncall", "description": "Кто сейчас дежурит"},
-                    {"command": "open", "description": "Открытые инциденты"},
-                    {"command": "whoami", "description": "Привязка аккаунта"},
-                ],
-            )
-            log.info("Telegram-бот @%s запущен", self.username)
-        except Exception:
-            log.exception("Не удалось подключиться к Telegram — проверьте bot_token")
+        if not await self._connect():
             return
         offset = await self._get_offset()
         backoff = 1
@@ -236,7 +263,7 @@ class Bot:
             except asyncio.CancelledError:
                 raise
             except Exception as e:
-                log.warning("getUpdates: %s; повтор через %s с", e, backoff)
+                log.warning("getUpdates: %s; повтор через %s с", _redact(e), backoff)
                 await asyncio.sleep(backoff)
                 backoff = min(backoff * 2, 60)
                 continue
