@@ -106,6 +106,17 @@ class Service(BaseModel):
 class Telegram(BaseModel):
     bot_token: str = ""
     enabled: bool = True
+    # Прокси только для Bot API, если api.telegram.org недоступен напрямую:
+    # socks5://host:1080, socks5h://… (DNS через прокси), http://user:pass@host:3128
+    proxy: str = ""
+
+    @field_validator("proxy")
+    @classmethod
+    def _check_proxy(cls, v: str) -> str:
+        v = v.strip()
+        if v and not re.match(r"^(https?|socks5h?)://[^\s/]+(:\d+)?/?$", v):
+            raise ValueError("telegram.proxy: нужен адрес вида socks5://host:port или http://host:port")
+        return v
 
 
 class Smtp(BaseModel):

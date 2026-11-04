@@ -51,7 +51,9 @@ def create_app(config: Config | None = None, start_background: bool = True) -> F
         db = make_engine(config.settings.database_url)
         await init_db(db)
         telegram = (
-            TelegramAPI(config.telegram.bot_token) if config.telegram.enabled and config.telegram.bot_token else None
+            TelegramAPI(config.telegram.bot_token, proxy=config.telegram.proxy or None)
+            if config.telegram.enabled and config.telegram.bot_token
+            else None
         )
         dispatcher = MultiDispatcher(config.settings.public_url, telegram, EmailSender(config.smtp))
         engine = Engine(config, make_sessionmaker(db), dispatcher)

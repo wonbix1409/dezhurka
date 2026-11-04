@@ -9,6 +9,8 @@ settings:
 
 telegram:
   bot_token: ${DEZHURKA_TELEGRAM_TOKEN}
+  # Если api.telegram.org недоступен: DEZHURKA_TELEGRAM_PROXY=socks5h://host.docker.internal:10808 в .env
+  proxy: ${DEZHURKA_TELEGRAM_PROXY:-}
 
 smtp:
   host: ${DEZHURKA_SMTP_HOST:-}

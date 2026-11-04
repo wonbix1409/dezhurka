@@ -11,6 +11,7 @@ settings:
 
 telegram:
   bot_token: ${DEZHURKA_TELEGRAM_TOKEN}   # токен от @BotFather
+  # proxy: socks5h://10.0.0.5:1080          # только для Bot API, если Telegram недоступен напрямую
 
 smtp:
   host: ${DEZHURKA_SMTP_HOST:-}

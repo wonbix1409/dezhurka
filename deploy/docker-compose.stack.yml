@@ -15,6 +15,9 @@ services:
     env_file: ../.env
     environment:
       DEZHURKA_CONFIG: /app/config.yaml
+    extra_hosts:
+      # прокси до Telegram, запущенный на самой машине стенда (DEZHURKA_TELEGRAM_PROXY)
+      - "host.docker.internal:host-gateway"
     volumes:
       - ../config.yaml:/app/config.yaml:ro
       - dezhurka-data:/app/data
