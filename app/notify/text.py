@@ -1,10 +1,20 @@
 """Тексты уведомлений — одно место, чтобы Telegram и почта говорили одинаково."""
 from __future__ import annotations
 
-from html import escape
+import re
+from html import escape as _html_escape
 from zoneinfo import ZoneInfo
 
 from ..models import Incident, Status
+
+# Telegram превращает «/слово» в кликабельную команду бота (например «/var» в пути диска).
+# Невидимый word joiner после слэша ломает автоссылку, а текст выглядит так же.
+# «;» — конец HTML-сущности вроде &quot; после экранирования кавычек.
+_CMD_RE = re.compile(r"(^|[\s(\[«;])/(?=[A-Za-z0-9_])")
+
+
+def escape(text: str) -> str:
+    return _CMD_RE.sub(lambda m: m.group(1) + "/\u2060", _html_escape(text))
 
 SEVERITY = {"critical": "🔴 Critical", "warning": "🟠 Warning", "info": "🔵 Info"}
 STATUS = {
@@ -43,7 +53,7 @@ def telegram_html(incident: Incident, service_name: str, public_url: str, reason
     lines.append(status)
     if incident.alert_count > 1:
         lines.append(f"Повторов алерта: {incident.alert_count}")
-    lines.append(f'<a href="{escape(incident_url(public_url, incident))}">Открыть в панели</a>')
+    lines.append(f'<a href="{_html_escape(incident_url(public_url, incident))}">Открыть в панели</a>')
     return "\n".join(lines)
 
 
