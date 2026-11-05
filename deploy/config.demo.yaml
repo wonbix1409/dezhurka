@@ -6,6 +6,7 @@ settings:
   secret_key: ${DEZHURKA_SECRET_KEY}
   admin_password: ${DEZHURKA_ADMIN_PASSWORD}
   timezone: __TIMEZONE__
+  admin_email: ${DEZHURKA_ADMIN_EMAIL:-}   # кого предупредить, если Telegram недоступен
 
 telegram:
   bot_token: ${DEZHURKA_TELEGRAM_TOKEN}

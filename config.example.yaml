@@ -7,6 +7,7 @@ settings:
   admin_password: ${DEZHURKA_ADMIN_PASSWORD}                  # пароль панели (логин любой)
   database_url: ${DEZHURKA_DATABASE_URL:-sqlite+aiosqlite:///./data/dezhurka.db}
   timezone: Europe/Moscow
+  # admin_email: ops@example.ru        # письмо, если Telegram недоступен дольше channel_alert_after_min (10 мин)
   tick_seconds: 10
 
 telegram:

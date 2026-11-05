@@ -10,12 +10,13 @@ import hashlib
 import hmac
 import logging
 import re
+from datetime import datetime
 from html import escape
 
 from sqlalchemy import select
 
 from .engine import ActionError, Engine
-from .models import KV, Incident, Status, TelegramLink
+from .models import KV, Incident, Status, TelegramLink, utcnow
 from .notify.telegram import TelegramAPI
 from .notify.text import STATUS, fmt_time
 
@@ -48,6 +49,20 @@ class Bot:
         self.api = api
         self.username: str | None = None
         self._stop = asyncio.Event()
+        # С какого момента Telegram недоступен (naive UTC) и последняя ошибка — для предупреждений
+        self.failing_since: datetime | None = None
+        self.last_error: str = ""
+
+    def _failed(self, error: str) -> None:
+        if self.failing_since is None:
+            self.failing_since = utcnow()
+        self.last_error = error
+
+    def _ok(self) -> None:
+        if self.failing_since is not None:
+            log.info("Связь с Telegram восстановлена")
+        self.failing_since = None
+        self.last_error = ""
 
     @property
     def config(self):
@@ -233,10 +248,12 @@ class Bot:
                     ],
                 )
                 log.info("Telegram-бот @%s запущен", self.username)
+                self._ok()
                 return True
             except asyncio.CancelledError:
                 raise
             except Exception as e:
+                self._failed(_redact(e))
                 log.error(
                     "Не удалось подключиться к Telegram (%s) — проверьте bot_token и доступ к api.telegram.org; "
                     "повтор через %s с",
@@ -260,9 +277,11 @@ class Bot:
                     "getUpdates", offset=offset, timeout=30, allowed_updates=["message", "callback_query"]
                 )
                 backoff = 1
+                self._ok()
             except asyncio.CancelledError:
                 raise
             except Exception as e:
+                self._failed(_redact(e))
                 log.warning("getUpdates: %s; повтор через %s с", _redact(e), backoff)
                 await asyncio.sleep(backoff)
                 backoff = min(backoff * 2, 60)

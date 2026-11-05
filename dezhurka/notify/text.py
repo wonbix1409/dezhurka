@@ -83,7 +83,13 @@ def email_subject(incident: Incident, service_name: str) -> str:
     return f"[{tag}] #{incident.id} {incident.title} — {service_name}"
 
 
-def email_body(incident: Incident, service_name: str, public_url: str, reason: str | None = None) -> str:
+def email_body(
+    incident: Incident,
+    service_name: str,
+    public_url: str,
+    reason: str | None = None,
+    actions: list[tuple[str, str]] | None = None,
+) -> str:
     parts = []
     if reason and incident.status == Status.TRIGGERED:
         parts.append(reason)
@@ -93,11 +99,15 @@ def email_body(incident: Incident, service_name: str, public_url: str, reason: s
         f"Важность: {incident.severity}, источник: {incident.source}",
         f"Статус: {STATUS.get(incident.status, incident.status)}",
     ]
+    if actions:
+        # Ссылки — сразу под статусом, чтобы ночью не листать письмо
+        parts.append("")
+        parts += [f"{label}: {url}" for label, url in actions]
     if incident.acknowledged_by:
         parts.append(f"Взял: {incident.acknowledged_by}")
     if incident.resolved_by:
         parts.append(f"Решил: {incident.resolved_by}")
     if incident.details:
         parts += ["", incident.details]
-    parts += ["", f"Подтвердить или закрыть: {incident_url(public_url, incident)}"]
+    parts += ["", f"Открыть в панели: {incident_url(public_url, incident)}"]
     return "\n".join(parts)

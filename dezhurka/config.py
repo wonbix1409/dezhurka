@@ -136,6 +136,9 @@ class Settings(BaseModel):
     database_url: str = "sqlite+aiosqlite:///./data/dezhurka.db"
     tick_seconds: float = 10
     timezone: str = "Europe/Moscow"  # в каком поясе показывать время в панели
+    # Куда писать, если канал уведомлений (Telegram) недоступен дольше channel_alert_after_min
+    admin_email: str = ""
+    channel_alert_after_min: int = Field(10, ge=1)
 
 
 class Config(BaseModel):

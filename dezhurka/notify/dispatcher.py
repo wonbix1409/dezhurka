@@ -3,7 +3,8 @@ from __future__ import annotations
 
 import logging
 
-from ..models import Incident
+from ..action_links import make_token
+from ..models import Incident, Status, utcnow
 from .base import Contact, Delivery
 from .email import EmailSender
 from .telegram import TelegramAPI, TelegramError, incident_keyboard
@@ -13,10 +14,34 @@ log = logging.getLogger("dezhurka.dispatch")
 
 
 class MultiDispatcher:
-    def __init__(self, public_url: str, telegram: TelegramAPI | None, email: EmailSender | None) -> None:
+    def __init__(
+        self,
+        public_url: str,
+        telegram: TelegramAPI | None,
+        email: EmailSender | None,
+        link_secret: str | None = None,
+    ) -> None:
         self.public_url = public_url
         self.telegram = telegram
         self.email = email if email and email.enabled else None
+        # Секрет для ссылок «Беру»/«Решено» в письмах; без него письма только со ссылкой в панель
+        self.link_secret = link_secret
+
+    def email_actions(self, incident: Incident, user_id: str) -> list[tuple[str, str]]:
+        if not self.link_secret:
+            return []
+        if incident.status == Status.TRIGGERED:
+            wanted = [("Беру", "ack"), ("Решено", "resolve")]
+        elif incident.status == Status.ACKNOWLEDGED:
+            wanted = [("Решено", "resolve")]
+        else:
+            return []
+        base = self.public_url.rstrip("/")
+        now = utcnow()
+        return [
+            (label, f"{base}/a/{make_token(self.link_secret, incident.id, action, user_id, now)}")
+            for label, action in wanted
+        ]
 
     async def _tg_send(self, chat_id: int, incident: Incident, service_name: str, reason: str | None) -> Delivery:
         try:
@@ -41,7 +66,10 @@ class MultiDispatcher:
             err = await self.email.send(
                 contact.email,
                 email_subject(incident, service_name),
-                email_body(incident, service_name, self.public_url, reason),
+                email_body(
+                    incident, service_name, self.public_url, reason,
+                    actions=self.email_actions(incident, contact.user_id),
+                ),
             )
             out.append(Delivery("email", err is None, error=err or ""))
         return out
@@ -76,5 +104,5 @@ class MultiDispatcher:
                     await self.email.send(
                         c.email,
                         email_subject(incident, service_name),
-                        email_body(incident, service_name, self.public_url),
+                        email_body(incident, service_name, self.public_url, actions=self.email_actions(incident, c.user_id)),
                     )

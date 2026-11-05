@@ -69,13 +69,16 @@
 <body>
 <header><div class="bar">
   <a class="logo" href="/">дежурка<span>.</span></a>
-  <nav>
+  {% if not bare %}<nav>
     <a href="/" class="{% if active == 'index' %}on{% endif %}">Инциденты</a>
     <a href="/schedules" class="{% if active == 'schedules' %}on{% endif %}">Графики</a>
     <a href="/people" class="{% if active == 'people' %}on{% endif %}">Люди</a>
     <a href="/api/docs">API</a>
-  </nav>
+  </nav>{% endif %}
 </div></header>
-<main>{% block body %}{% endblock %}</main>
+<main>
+{% for w in channel_warnings or [] %}<div class="err">{{ w }}</div>{% endfor %}
+{% block body %}{% endblock %}
+</main>
 </body>
 </html>

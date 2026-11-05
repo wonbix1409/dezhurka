@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% set bare = True %}
+{% block title %}{{ title }} — Дежурка{% endblock %}
+{% block body %}
+<div class="card" style="max-width:520px;margin:24px auto;padding:22px">
+  {% if error %}
+    <h1 style="margin-top:0">Ссылка не работает</h1>
+    <p>{{ error }}</p>
+  {% elif done %}
+    <h1 style="margin-top:0">{{ done }}</h1>
+    <p><b>#{{ inc.id }} {{ inc.title }}</b></p>
+    <p class="muted">{{ STATUS.get(inc.status, inc.status) }}{% if inc.acknowledged_by %} · {{ inc.acknowledged_by }}{% endif %}</p>
+  {% else %}
+    <p class="muted" style="margin-top:0">{{ service.name if service else inc.service_id }} · {{ SEVERITY.get(inc.severity, inc.severity) }}</p>
+    <h1 style="margin-top:4px">#{{ inc.id }} {{ inc.title }}</h1>
+    <p>Статус: {{ STATUS.get(inc.status, inc.status) }}{% if inc.acknowledged_by %} · {{ inc.acknowledged_by }}{% endif %}</p>
+    {% if inc.details %}<pre style="margin:12px 0">{{ inc.details[:600] }}</pre>{% endif %}
+    <form method="post" style="margin-top:18px">
+      <button type="submit" class="btn primary" style="width:100%;padding:14px;font-size:17px">{{ button }}</button>
+    </form>
+    <p class="muted" style="font-size:13px;margin-bottom:0">Действуете как {{ user_name }}.</p>
+  {% endif %}
+</div>
+{% endblock %}

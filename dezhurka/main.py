@@ -15,12 +15,14 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
+from .action_links import LinkError, read_token
 from .auth import BasicPasswordAuth, require_principal
 from .bot import Bot
 from .config import Config, load_config
 from .db import init_db, make_engine, make_sessionmaker
 from .engine import ActionError, Engine
 from .extensions import Extension, load_extensions, migration_sets, run_setup, run_shutdown, run_startup
+from .health import ChannelWatchdog, watchdog_loop
 from .ingest import PARSERS, IngestError
 from .models import Incident, ScheduleOverride, Status, TelegramLink, utcnow
 from .notify.dispatcher import MultiDispatcher
@@ -61,13 +63,17 @@ def create_app(
             if config.telegram.enabled and config.telegram.bot_token
             else None
         )
-        dispatcher = MultiDispatcher(config.settings.public_url, telegram, EmailSender(config.smtp))
+        dispatcher = MultiDispatcher(
+            config.settings.public_url, telegram, EmailSender(config.smtp), link_secret=config.settings.secret_key
+        )
         engine = Engine(config, make_sessionmaker(db), dispatcher)
         app.state.engine = engine
         app.state.bot = Bot(engine, telegram) if telegram else None
+        app.state.watchdog = ChannelWatchdog(config, app.state.bot, dispatcher.email)
         tasks = []
         if start_background:
             tasks.append(asyncio.create_task(escalation_loop(engine, config.settings.tick_seconds)))
+            tasks.append(asyncio.create_task(watchdog_loop(app.state.watchdog, utcnow)))
             if app.state.bot:
                 tasks.append(asyncio.create_task(app.state.bot.run()))
         if not telegram:
@@ -106,6 +112,9 @@ def create_app(
             config=config,
             principal=getattr(request.state, "principal", None),
         )
+        watchdog = getattr(request.app.state, "watchdog", None)
+        # предупреждения о каналах — только в закрытой части панели
+        ctx.setdefault("channel_warnings", watchdog.warnings(utcnow()) if watchdog and ctx["principal"] else [])
         return TEMPLATES.TemplateResponse(request, name, ctx)
 
     # ---------- приём алертов ----------
@@ -275,6 +284,54 @@ def create_app(
                 await s.delete(row)
                 await s.commit()
         return RedirectResponse("/schedules", status_code=303)
+
+    # ---------- ссылки из писем: «Беру» / «Решено» без входа в панель ----------
+
+    ACTION_LABELS = {"ack": ("Беру", "Взято в работу"), "resolve": ("Решено", "Инцидент закрыт")}
+
+    async def _claim(token: str, eng: Engine):
+        claim = read_token(config.settings.secret_key, token, utcnow())
+        user = config.user(claim.user_id)
+        if user is None:
+            raise LinkError("этого человека больше нет в конфиге")
+        async with eng.sessions() as s:
+            inc = await s.get(Incident, claim.incident_id)
+        if inc is None:
+            raise LinkError("инцидент не найден")
+        return claim, user, inc
+
+    def _action_page(request: Request, status_code: int = 200, **ctx):
+        resp = render(request, "action.html", title="Дежурка", **ctx)
+        resp.status_code = status_code
+        # ссылка-ключ не должна утекать в Referer и кэши
+        resp.headers["Referrer-Policy"] = "no-referrer"
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+
+    @app.get("/a/{token}", response_class=HTMLResponse)
+    async def action_link(token: str, request: Request, eng: Engine = Depends(engine)):
+        # GET ничего не меняет: почтовые сканеры открывают ссылки сами
+        try:
+            claim, user, inc = await _claim(token, eng)
+        except LinkError as e:
+            return _action_page(request, 400, error=str(e))
+        button, _ = ACTION_LABELS[claim.action]
+        return _action_page(
+            request, inc=inc, service=config.service(inc.service_id), button=button, user_name=user.name
+        )
+
+    @app.post("/a/{token}", response_class=HTMLResponse)
+    async def action_link_do(token: str, request: Request, eng: Engine = Depends(engine)):
+        try:
+            claim, user, inc = await _claim(token, eng)
+            if claim.action == "ack":
+                inc = await eng.acknowledge(claim.incident_id, user.name)
+            else:
+                inc = await eng.resolve(claim.incident_id, user.name)
+        except (LinkError, ActionError) as e:
+            return _action_page(request, 400 if isinstance(e, LinkError) else 409, error=str(e))
+        log.info("Инцидент #%s: «%s» по ссылке из письма (%s)", inc.id, claim.action, user.id)
+        return _action_page(request, inc=inc, done=ACTION_LABELS[claim.action][1])
 
     # Маршруты и замены от расширений — после маршрутов ядра
     run_setup(exts, app, config)
