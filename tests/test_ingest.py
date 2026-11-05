@@ -1,6 +1,6 @@
 import pytest
 
-from app.ingest import RESOLVE, TRIGGER, IngestError, parse_alertmanager, parse_generic, parse_zabbix
+from dezhurka.ingest import RESOLVE, TRIGGER, IngestError, parse_alertmanager, parse_generic, parse_zabbix
 
 AM = {
     "version": "4",

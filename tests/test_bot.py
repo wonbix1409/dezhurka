@@ -3,10 +3,10 @@ import json
 
 import httpx
 
-from app.bot import Bot, link_code
-from app.ingest import Alert
-from app.models import Status
-from app.notify.telegram import TelegramAPI
+from dezhurka.bot import Bot, link_code
+from dezhurka.ingest import Alert
+from dezhurka.models import Status
+from dezhurka.notify.telegram import TelegramAPI
 
 
 class FakeTG:
@@ -69,7 +69,7 @@ def test_link_and_ack_via_button(env):
     run(bot.handle(cb(f"res:{iid}")))
 
     async def status():
-        from app.models import Incident
+        from dezhurka.models import Incident
 
         async with eng.sessions() as s:
             return (await s.get(Incident, iid)).status
@@ -88,7 +88,7 @@ def test_group_chat_start_shows_chat_id(env):
 
 
 def test_real_dispatcher_sends_and_edits(env):
-    from app.notify.dispatcher import MultiDispatcher
+    from dezhurka.notify.dispatcher import MultiDispatcher
 
     eng, _, clock, run = env
     fake = FakeTG()

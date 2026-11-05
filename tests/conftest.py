@@ -5,10 +5,10 @@ from datetime import datetime
 
 import pytest
 
-from app.config import Config
-from app.db import init_db, make_engine, make_sessionmaker
-from app.engine import Engine
-from app.notify.base import Delivery
+from dezhurka.config import Config
+from dezhurka.db import init_db, make_engine, make_sessionmaker
+from dezhurka.engine import Engine
+from dezhurka.notify.base import Delivery
 
 CONFIG = {
     "settings": {"secret_key": "test-secret-key-123456", "admin_password": "admin123"},

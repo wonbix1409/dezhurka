@@ -48,7 +48,7 @@ docker compose up -d --build
 
 ```bash
 pip install -r requirements.txt
-DEZHURKA_CONFIG=config.yaml uvicorn app.main:app_factory --factory --port 8000
+DEZHURKA_CONFIG=config.yaml uvicorn dezhurka.main:app_factory --factory --port 8000
 ```
 
 Запускайте **один процесс** (`--workers 1`): эскалации и бот работают внутри него.
@@ -136,8 +136,12 @@ pip install -r requirements.txt pytest
 python -m pytest -q
 ```
 
-Хранилище по умолчанию — SQLite в `./data`. Для Postgres задайте
-`DEZHURKA_DATABASE_URL=postgresql+asyncpg://user:pass@host/dezhurka`.
+Хранилище по умолчанию — SQLite в `./data`. Для Postgres укажите в `config.yaml`
+`settings.database_url: postgresql+asyncpg://user:pass@host/dezhurka`.
+
+Схема БД обновляется миграциями Alembic автоматически при старте. Ядро ставится как пакет
+(`pip install .`) и расширяется модулями через entry points — подробнее в
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#расширения).
 
 ## Лицензия
 

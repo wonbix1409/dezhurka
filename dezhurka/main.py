@@ -4,23 +4,23 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-import secrets
+from collections.abc import Sequence
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
-from urllib.parse import urlparse
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
+from .auth import BasicPasswordAuth, require_principal
 from .bot import Bot
 from .config import Config, load_config
 from .db import init_db, make_engine, make_sessionmaker
 from .engine import ActionError, Engine
+from .extensions import Extension, load_extensions, migration_sets, run_setup, run_shutdown, run_startup
 from .ingest import PARSERS, IngestError
 from .models import Incident, ScheduleOverride, Status, TelegramLink, utcnow
 from .notify.dispatcher import MultiDispatcher
@@ -43,13 +43,19 @@ async def escalation_loop(engine: Engine, every: float) -> None:
         await asyncio.sleep(every)
 
 
-def create_app(config: Config | None = None, start_background: bool = True) -> FastAPI:
+def create_app(
+    config: Config | None = None,
+    start_background: bool = True,
+    extensions: Sequence[Extension] = (),
+) -> FastAPI:
     config = config or load_config()
+    exts = list(extensions)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         db = make_engine(config.settings.database_url)
-        await init_db(db)
+        await init_db(db, migration_sets(exts))
+        app.state.db = db
         telegram = (
             TelegramAPI(config.telegram.bot_token, proxy=config.telegram.proxy or None)
             if config.telegram.enabled and config.telegram.bot_token
@@ -68,7 +74,9 @@ def create_app(config: Config | None = None, start_background: bool = True) -> F
             log.warning("Telegram выключен: не задан bot_token")
         if not dispatcher.email:
             log.warning("Почта выключена: не задан smtp.host/sender")
+        await run_startup(exts, app)
         yield
+        await run_shutdown(exts, app)
         for t in tasks:
             t.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -77,26 +85,27 @@ def create_app(config: Config | None = None, start_background: bool = True) -> F
             await telegram.close()
         await db.dispose()
 
-    app = FastAPI(title="Дежурка", version="0.1.0", lifespan=lifespan, docs_url="/api/docs")
-    security = HTTPBasic(realm="Dezhurka")
+    app = FastAPI(title="Дежурка", version="0.2.0", lifespan=lifespan, docs_url="/api/docs")
+    app.state.config = config
+    app.state.extensions = exts
+    # Расширение может заменить бэкенд авторизации в своём setup()
+    app.state.auth = BasicPasswordAuth(config)
     tz = config.settings.timezone
 
-    def admin(request: Request, creds: HTTPBasicCredentials = Depends(security)) -> str:
-        ok = secrets.compare_digest(creds.password.encode(), config.settings.admin_password.encode())
-        if not ok:
-            raise HTTPException(401, "Неверный пароль", headers={"WWW-Authenticate": 'Basic realm="Dezhurka"'})
-        # Защита форм от CSRF: браузер сам шлёт Basic-авторизацию на любые запросы к нам
-        if request.method == "POST":
-            origin = request.headers.get("origin") or request.headers.get("referer")
-            if origin and urlparse(origin).netloc != request.headers.get("host"):
-                raise HTTPException(403, "Запрос с чужого сайта")
-        return creds.username or "admin"
+    admin = require_principal
 
     def engine(request: Request) -> Engine:
         return request.app.state.engine
 
     def render(request: Request, name: str, **ctx):
-        ctx.update(request=request, STATUS=STATUS, SEVERITY=SEVERITY, fmt=lambda d, z=tz: fmt_time(d, z), config=config)
+        ctx.update(
+            request=request,
+            STATUS=STATUS,
+            SEVERITY=SEVERITY,
+            fmt=lambda d, z=tz: fmt_time(d, z),
+            config=config,
+            principal=getattr(request.state, "principal", None),
+        )
         return TEMPLATES.TemplateResponse(request, name, ctx)
 
     # ---------- приём алертов ----------
@@ -267,6 +276,8 @@ def create_app(config: Config | None = None, start_background: bool = True) -> F
                 await s.commit()
         return RedirectResponse("/schedules", status_code=303)
 
+    # Маршруты и замены от расширений — после маршрутов ядра
+    run_setup(exts, app, config)
     return app
 
 
@@ -275,4 +286,4 @@ def app_factory() -> FastAPI:  # для uvicorn --factory
     # httpx на INFO пишет полный URL запроса, а в URL Bot API лежит токен бота
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
-    return create_app()
+    return create_app(extensions=load_extensions())

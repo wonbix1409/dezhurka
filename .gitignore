@@ -5,3 +5,6 @@ data/
 .env
 config.yaml
 deploy/alertmanager/alertmanager.yml
+build/
+*.egg-info/
+dist/

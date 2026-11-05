@@ -1,9 +1,8 @@
 import pytest
-from sqlalchemy import select
 
-from app.engine import ActionError
-from app.ingest import RESOLVE, TRIGGER, Alert
-from app.models import Incident, ScheduleOverride, Status
+from dezhurka.engine import ActionError
+from dezhurka.ingest import RESOLVE, TRIGGER, Alert
+from dezhurka.models import Incident, ScheduleOverride, Status
 
 
 def alert(action=TRIGGER, key="k1", title="API лежит"):

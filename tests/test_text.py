@@ -1,4 +1,4 @@
-from app.notify.text import escape
+from dezhurka.notify.text import escape
 
 
 def test_slash_paths_do_not_become_bot_commands():
@@ -14,7 +14,7 @@ def test_slash_inside_words_and_urls_untouched():
 
 
 def test_urls_in_details_become_whole_links():
-    from app.notify.text import escape_with_links
+    from dezhurka.notify.text import escape_with_links
 
     url = "http://localhost:9090/graph?g0.expr=up+%3D%3D+0&g0.tab=1"
     html = escape_with_links(f"node на /srv не отвечает.\n{url}.")

@@ -186,7 +186,23 @@ iptables -I INPUT -p tcp --dport 10808 -j TG_PROXY
 
 - По умолчанию SQLite в томе `dezhurka-data` (`/app/data`), для команд побольше — PostgreSQL
   (`database_url: postgresql+asyncpg://…`).
-- Схема создаётся при старте (`create_all`). Миграций пока нет: при изменении моделей старая база
-  не обновится сама — Alembic в планах.
+- Схема ведётся миграциями Alembic (`dezhurka/migrations`) и обновляется сама при старте сервиса.
+  Базы, созданные до появления миграций, при первом запуске помечаются ревизией `0001` — данные не трогаются.
+- Новая миграция после изменения моделей:
+  `DEZHURKA_DB_URL=sqlite+aiosqlite:///./data/dev.db alembic revision --autogenerate -m "что изменилось"`.
+  Тест `tests/test_migrations.py` падает, если модели и миграции разошлись.
 - Таблицы: `incidents`, `incident_events` (хронология), `sent_messages`, `telegram_links`,
   `schedule_overrides` (подмены из панели), `kv` (служебное, например offset Telegram).
+
+## Расширения
+
+Ядро — пакет `dezhurka` (`pip install`), дополнительные модули подключаются к нему без форка.
+Расширение объявляет entry point группы `dezhurka.extensions` и может:
+
+- добавить маршруты и заменить авторизацию (`app.state.auth` — любой объект с
+  `async authenticate(request) -> Principal`; закрытые маршруты используют `dezhurka.auth.require_principal`);
+- принести свои таблицы — `MigrationSet` со своей таблицей версий Alembic, миграции ядра и расширения не мешают друг другу;
+- выполнить код при старте и остановке (`startup` / `shutdown`).
+
+Если установленное расширение не загрузилось, сервис не стартует: модуль авторизации не должен
+молча отвалиться. Контракт описан в `dezhurka/extensions.py`, пример — `tests/test_extensions.py`.

@@ -3,8 +3,8 @@ import base64
 import pytest
 from fastapi.testclient import TestClient
 
-from app.config import Config
-from app.main import create_app
+from dezhurka.config import Config
+from dezhurka.main import create_app
 from tests.conftest import CONFIG
 
 AUTH = {"Authorization": "Basic " + base64.b64encode(b"admin:admin123").decode()}

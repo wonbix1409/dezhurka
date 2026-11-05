@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from app.schedule import DbOverride, local_to_utc, on_call, upcoming
+from dezhurka.schedule import DbOverride, local_to_utc, on_call, upcoming
 
 
 def test_rotation_by_day(config):

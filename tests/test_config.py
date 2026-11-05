@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from app.config import Config, load_config
+from dezhurka.config import Config, load_config
 from tests.conftest import CONFIG
 
 
@@ -33,7 +33,7 @@ def test_telegram_proxy_validation():
     import pytest
     from pydantic import ValidationError
 
-    from app.config import Telegram
+    from dezhurka.config import Telegram
 
     assert Telegram(proxy="socks5h://host.docker.internal:10808").proxy == "socks5h://host.docker.internal:10808"
     assert Telegram(proxy=" http://user:pw@10.0.0.5:3128 ").proxy == "http://user:pw@10.0.0.5:3128"
@@ -46,7 +46,7 @@ def test_telegram_proxy_validation():
 def test_telegram_api_uses_proxy_and_hides_credentials():
     import asyncio
 
-    from app.notify.telegram import TelegramAPI, proxy_for_log
+    from dezhurka.notify.telegram import TelegramAPI, proxy_for_log
 
     # без пакета socksio httpx падает уже здесь — проверяем, что зависимость на месте
     api = TelegramAPI("123:abc", proxy="socks5://u:secret@127.0.0.1:1080")
