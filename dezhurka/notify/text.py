@@ -111,3 +111,70 @@ def email_body(
         parts += ["", incident.details]
     parts += ["", f"Открыть в панели: {incident_url(public_url, incident)}"]
     return "\n".join(parts)
+
+
+_BTN = {
+    # основное действие — тёмная кнопка, второе — контурная
+    0: "background:#1f2328;color:#ffffff;border:1px solid #1f2328;",
+    1: "background:#ffffff;color:#1a7f37;border:1px solid #1a7f37;",
+}
+
+
+def email_html(
+    incident: Incident,
+    service_name: str,
+    public_url: str,
+    reason: str | None = None,
+    actions: list[tuple[str, str]] | None = None,
+) -> str:
+    """HTML-версия письма: кнопки действий и описание инцидента.
+
+    Вёрстка таблицами и инлайн-стилями — так письмо одинаково выглядит в Gmail, Яндексе,
+    Outlook и на телефоне.
+    """
+    e = _html_escape
+    head = e(reason) if reason and incident.status == Status.TRIGGERED else ""
+    rows = [
+        ("Сервис", service_name),
+        ("Важность", SEVERITY.get(incident.severity, incident.severity)),
+        ("Источник", incident.source),
+        ("Статус", STATUS.get(incident.status, incident.status)),
+    ]
+    if incident.acknowledged_by:
+        rows.append(("Взял", incident.acknowledged_by))
+    if incident.resolved_by:
+        rows.append(("Решил", incident.resolved_by))
+    info = "".join(
+        f'<tr><td style="padding:3px 12px 3px 0;color:#656d76;white-space:nowrap">{e(k)}</td>'
+        f'<td style="padding:3px 0;color:#1f2328">{e(str(v))}</td></tr>'
+        for k, v in rows
+    )
+    buttons = "".join(
+        f'<td style="padding:0 10px 0 0"><a href="{e(url, quote=True)}" target="_blank" '
+        f'style="{_BTN[min(i, 1)]}display:inline-block;padding:12px 26px;border-radius:8px;'
+        f'font-size:16px;font-weight:600;text-decoration:none;font-family:Arial,sans-serif">{e(label)}</a></td>'
+        for i, (label, url) in enumerate(actions or [])
+    )
+    details = (
+        f'<div style="margin:16px 0 0;padding:12px 14px;background:#f6f8fa;border-radius:8px;'
+        f'font-family:Menlo,Consolas,monospace;font-size:13px;color:#1f2328;white-space:pre-wrap;'
+        f'word-break:break-word">{e(incident.details[:2000])}</div>'
+        if incident.details
+        else ""
+    )
+    return f"""<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
+<body style="margin:0;padding:0;background:#f6f8fa">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f8fa"><tr><td align="center" style="padding:24px 12px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #d0d7de;border-radius:10px">
+<tr><td style="padding:22px 24px;font-family:Arial,sans-serif;font-size:15px;line-height:1.45;color:#1f2328">
+{f'<div style="color:#cf222e;font-weight:600;margin:0 0 6px">{head}</div>' if head else ''}
+<div style="font-size:19px;font-weight:700;margin:0 0 14px">#{incident.id} {e(incident.title)}</div>
+{f'<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 18px"><tr>{buttons}</tr></table>' if buttons else ''}
+<table role="presentation" cellpadding="0" cellspacing="0" style="font-size:14px">{info}</table>
+{details}
+<div style="margin:18px 0 0;font-size:13px"><a href="{e(incident_url(public_url, incident), quote=True)}" target="_blank" style="color:#0969da;text-decoration:none">Открыть в панели</a></div>
+</td></tr></table>
+<div style="font-family:Arial,sans-serif;font-size:12px;color:#8c959f;padding:12px">Дежурка</div>
+</td></tr></table>
+</body></html>"""

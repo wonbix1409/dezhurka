@@ -19,12 +19,14 @@ class EmailSender:
     def enabled(self) -> bool:
         return bool(self.cfg.host and self.cfg.sender)
 
-    def _send_sync(self, to: str, subject: str, body: str) -> None:
+    def _send_sync(self, to: str, subject: str, body: str, html: str | None = None) -> None:
         msg = EmailMessage()
         msg["From"] = self.cfg.sender
         msg["To"] = to
         msg["Subject"] = subject
-        msg.set_content(body)
+        msg.set_content(body)  # текстовая версия — для клиентов без HTML
+        if html:
+            msg.add_alternative(html, subtype="html")
         ctx = ssl.create_default_context()
         if self.cfg.ssl:
             server = smtplib.SMTP_SSL(self.cfg.host, self.cfg.port, timeout=15, context=ctx)
@@ -37,10 +39,10 @@ class EmailSender:
                 server.login(self.cfg.username, self.cfg.password)
             server.send_message(msg)
 
-    async def send(self, to: str, subject: str, body: str) -> str | None:
+    async def send(self, to: str, subject: str, body: str, html: str | None = None) -> str | None:
         """Возвращает текст ошибки или None при успехе."""
         try:
-            await asyncio.to_thread(self._send_sync, to, subject, body)
+            await asyncio.to_thread(self._send_sync, to, subject, body, html)
             return None
         except Exception as e:  # сеть, авторизация, отказ сервера
             log.warning("письмо на %s не ушло: %s", to, e)

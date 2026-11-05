@@ -8,7 +8,7 @@ from ..models import Incident, Status, utcnow
 from .base import Contact, Delivery
 from .email import EmailSender
 from .telegram import TelegramAPI, TelegramError, incident_keyboard
-from .text import email_body, email_subject, telegram_html
+from .text import email_body, email_html, email_subject, telegram_html
 
 log = logging.getLogger("dezhurka.dispatch")
 
@@ -63,13 +63,12 @@ class MultiDispatcher:
         if self.telegram and contact.telegram_chat_id:
             out.append(await self._tg_send(contact.telegram_chat_id, incident, service_name, reason))
         if self.email and contact.email:
+            actions = self.email_actions(incident, contact.user_id)
             err = await self.email.send(
                 contact.email,
                 email_subject(incident, service_name),
-                email_body(
-                    incident, service_name, self.public_url, reason,
-                    actions=self.email_actions(incident, contact.user_id),
-                ),
+                email_body(incident, service_name, self.public_url, reason, actions=actions),
+                html=email_html(incident, service_name, self.public_url, reason, actions=actions),
             )
             out.append(Delivery("email", err is None, error=err or ""))
         return out
@@ -101,8 +100,10 @@ class MultiDispatcher:
         if self.email:
             for c in contacts:
                 if c.email and not (self.telegram and c.telegram_chat_id):
+                    actions = self.email_actions(incident, c.user_id)
                     await self.email.send(
                         c.email,
                         email_subject(incident, service_name),
-                        email_body(incident, service_name, self.public_url, actions=self.email_actions(incident, c.user_id)),
+                        email_body(incident, service_name, self.public_url, actions=actions),
+                        html=email_html(incident, service_name, self.public_url, actions=actions),
                     )

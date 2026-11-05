@@ -116,8 +116,8 @@ class FakeEmail:
     def __init__(self):
         self.sent: list[tuple[str, str, str]] = []
 
-    async def send(self, to, subject, body):
-        self.sent.append((to, subject, body))
+    async def send(self, to, subject, body, html=None):
+        self.sent.append((to, subject, body, html))
         return None
 
 
@@ -141,3 +141,22 @@ def test_email_contains_action_links():
     assert [a for a, _ in d.email_actions(_inc(Status.ACKNOWLEDGED), "anna")] == ["Решено"]
     assert d.email_actions(_inc(Status.RESOLVED), "anna") == []
     assert MultiDispatcher("https://x", None, email).email_actions(_inc(Status.TRIGGERED), "anna") == []
+
+
+def test_email_html_has_buttons_not_raw_links():
+    email = FakeEmail()
+    d = MultiDispatcher("https://dz.example", None, email, link_secret=SECRET)
+    contact = Contact(user_id="anna", name="Анна", email="anna@example.com")
+    inc = _inc(Status.TRIGGERED)
+    inc.title = "Диск <b>полон</b>"
+    asyncio.run(d.page(contact, inc, "API", "Новый инцидент"))
+    html = email.sent[0][3]
+    import re
+
+    buttons = re.findall(r'<a href="(https://dz\.example/a/[^"]+)"[^>]*>([^<]+)</a>', html)
+    assert [label for _, label in buttons] == ["Беру", "Решено"]
+    # адреса только в href, текстом ссылок не видно
+    visible = re.sub(r"<[^>]+>", "", html)
+    assert "/a/" not in visible and "https://" not in visible
+    assert "Диск &lt;b&gt;полон&lt;/b&gt;" in html  # заголовок экранирован
+    assert ">Открыть в панели</a>" in html
