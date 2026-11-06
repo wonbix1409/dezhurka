@@ -19,6 +19,8 @@
 </form>
 {% endif %}
 
+{% for l in incident_links or [] %}<a class="btn" style="margin:8px 8px 0 0" href="{{ l.href.replace('{id}', inc.id|string) }}">{{ l.label }}</a>{% endfor %}
+
 {% if inc.details %}
 <h2>Подробности</h2>
 <div class="card" style="padding:14px"><pre>{{ inc.details }}</pre></div>

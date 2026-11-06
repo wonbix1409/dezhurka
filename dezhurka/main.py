@@ -103,6 +103,7 @@ def create_app(
     app.state.auth = BasicPasswordAuth(config)
     app.state.nav = []  # пункты меню от расширений: {"href", "label", "roles"?}
     app.state.logout_url = None
+    app.state.incident_links = []  # ссылки на странице инцидента: {"href": "/x/{id}", "label"}
     tz = config.settings.timezone
 
     # Расширения могут принести свои шаблоны (templates_dir) — они видят шаблоны ядра
@@ -138,6 +139,7 @@ def create_app(
             principal=getattr(request.state, "principal", None),
             nav_items=[n for n in request.app.state.nav if _nav_visible(n, getattr(request.state, "principal", None))],
             logout_url=request.app.state.logout_url,
+            incident_links=request.app.state.incident_links,
         )
         watchdog = getattr(request.app.state, "watchdog", None)
         # предупреждения о каналах — только в закрытой части панели
