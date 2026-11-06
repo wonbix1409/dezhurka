@@ -139,6 +139,8 @@ class Settings(BaseModel):
     # Куда писать, если канал уведомлений (Telegram) недоступен дольше channel_alert_after_min
     admin_email: str = ""
     channel_alert_after_min: int = Field(10, ge=1)
+    # Лимит запросов в минуту на один ключ интеграции; 0 — без ограничения
+    ingest_rate_per_min: int = Field(600, ge=0)
 
 
 class Config(BaseModel):

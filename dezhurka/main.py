@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import hmac
 import logging
 from collections.abc import Sequence
 from contextlib import asynccontextmanager
@@ -10,8 +11,9 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
+from jinja2 import ChoiceLoader, FileSystemLoader
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
@@ -22,6 +24,7 @@ from .config import Config, load_config
 from .db import init_db, make_engine, make_sessionmaker
 from .engine import ActionError, Engine
 from .extensions import Extension, load_extensions, migration_sets, run_setup, run_shutdown, run_startup
+from . import ical
 from .health import ChannelWatchdog, watchdog_loop
 from .ingest import PARSERS, IngestError
 from .models import Incident, ScheduleOverride, Status, TelegramLink, utcnow
@@ -29,10 +32,11 @@ from .notify.dispatcher import MultiDispatcher
 from .notify.email import EmailSender
 from .notify.telegram import TelegramAPI
 from .notify.text import SEVERITY, STATUS, fmt_time
-from .schedule import local_to_utc, upcoming
+from .ratelimit import RateLimiter
+from .schedule import DbOverride, local_to_utc, upcoming
 
 log = logging.getLogger("dezhurka")
-TEMPLATES = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
+CORE_TEMPLATES = Path(__file__).parent / "templates"
 MAX_BODY = 1_000_000  # 1 МБ на вебхук
 
 
@@ -67,6 +71,7 @@ def create_app(
             config.settings.public_url, telegram, EmailSender(config.smtp), link_secret=config.settings.secret_key
         )
         engine = Engine(config, make_sessionmaker(db), dispatcher)
+        app.state.dispatcher = dispatcher
         app.state.engine = engine
         app.state.bot = Bot(engine, telegram) if telegram else None
         app.state.watchdog = ChannelWatchdog(config, app.state.bot, dispatcher.email)
@@ -96,12 +101,32 @@ def create_app(
     app.state.extensions = exts
     # Расширение может заменить бэкенд авторизации в своём setup()
     app.state.auth = BasicPasswordAuth(config)
+    app.state.nav = []  # пункты меню от расширений: {"href", "label", "roles"?}
+    app.state.logout_url = None
     tz = config.settings.timezone
+
+    # Расширения могут принести свои шаблоны (templates_dir) — они видят шаблоны ядра
+    templates = Jinja2Templates(directory=str(CORE_TEMPLATES))
+    ext_dirs = [str(d) for e in exts if (d := getattr(e, "templates_dir", None))]
+    templates.env.loader = ChoiceLoader([FileSystemLoader(str(CORE_TEMPLATES)), *map(FileSystemLoader, ext_dirs)])
+    limiter = RateLimiter(config.settings.ingest_rate_per_min)
 
     admin = require_principal
 
+    def acting_name(principal, form_actor: str = "") -> str:
+        """Под чьим именем записать действие: у личной учётки — её владелец, при общем пароле — выбранный в форме."""
+        if principal.shared:
+            user = config.user(form_actor)
+            return user.name if user else "Панель"
+        user = config.user(principal.user_id) if principal.user_id else None
+        return user.name if user else principal.name
+
     def engine(request: Request) -> Engine:
         return request.app.state.engine
+
+    def _nav_visible(item: dict, principal) -> bool:
+        roles = item.get("roles")
+        return not roles or (principal is not None and bool(set(roles) & set(principal.roles)))
 
     def render(request: Request, name: str, **ctx):
         ctx.update(
@@ -111,11 +136,15 @@ def create_app(
             fmt=lambda d, z=tz: fmt_time(d, z),
             config=config,
             principal=getattr(request.state, "principal", None),
+            nav_items=[n for n in request.app.state.nav if _nav_visible(n, getattr(request.state, "principal", None))],
+            logout_url=request.app.state.logout_url,
         )
         watchdog = getattr(request.app.state, "watchdog", None)
         # предупреждения о каналах — только в закрытой части панели
         ctx.setdefault("channel_warnings", watchdog.warnings(utcnow()) if watchdog and ctx["principal"] else [])
-        return TEMPLATES.TemplateResponse(request, name, ctx)
+        return templates.TemplateResponse(request, name, ctx)
+
+    app.state.render = render
 
     # ---------- приём алертов ----------
 
@@ -127,6 +156,8 @@ def create_app(
         parser = PARSERS.get(kind)
         if parser is None:
             raise HTTPException(404, f"Неизвестный тип интеграции; доступны: {', '.join(PARSERS)}")
+        if not limiter.allow(integration_key):
+            raise HTTPException(429, "Слишком много запросов", headers={"Retry-After": "60"})
         body = await request.body()
         if len(body) > MAX_BODY:
             raise HTTPException(413, "Слишком большой запрос")
@@ -149,7 +180,8 @@ def create_app(
     # ---------- REST для действий ----------
 
     @app.post("/api/v1/incidents/{incident_id}/{action}")
-    async def api_action(incident_id: int, action: str, actor: str = "API", _=Depends(admin), eng: Engine = Depends(engine)):
+    async def api_action(incident_id: int, action: str, actor: str = "API", principal=Depends(admin), eng: Engine = Depends(engine)):
+        actor = actor if principal.shared else acting_name(principal)
         try:
             if action == "acknowledge":
                 inc = await eng.acknowledge(incident_id, actor)
@@ -209,10 +241,9 @@ def create_app(
 
     @app.post("/incidents/{incident_id}/{action}")
     async def incident_action(
-        incident_id: int, action: str, actor: str = Form(...), _=Depends(admin), eng: Engine = Depends(engine)
+        incident_id: int, action: str, actor: str = Form(""), principal=Depends(admin), eng: Engine = Depends(engine)
     ):
-        user = config.user(actor)
-        name = user.name if user else "Панель"
+        name = acting_name(principal, actor)
         try:
             if action == "ack":
                 await eng.acknowledge(incident_id, name)
@@ -250,7 +281,20 @@ def create_app(
                     )
                 ).all()
                 data.append((sch, current, upcoming(sch, now, 6), overrides))
-        return render(request, "schedules.html", data=data, error=request.query_params.get("error"))
+        base = config.settings.public_url.rstrip("/")
+        ics = {sch.id: f"{base}/ical/{sch.id}/{ical.token(config.settings.secret_key, sch.id)}.ics" for sch in config.schedules}
+        return render(request, "schedules.html", data=data, ics=ics, error=request.query_params.get("error"))
+
+    @app.get("/ical/{schedule_id}/{key}.ics")
+    async def schedule_ics(schedule_id: str, key: str, eng: Engine = Depends(engine)):
+        # без входа в панель: календарные клиенты не умеют логиниться, доступ — по секретной ссылке
+        sch = config.schedule(schedule_id)
+        if sch is None or not hmac.compare_digest(key, ical.token(config.settings.secret_key, schedule_id)):
+            raise HTTPException(404)
+        async with eng.sessions() as s:
+            rows = (await s.scalars(select(ScheduleOverride).where(ScheduleOverride.schedule_id == schedule_id))).all()
+        body = ical.render(config, sch, [DbOverride(r.user_id, r.start, r.end) for r in rows], utcnow())
+        return Response(body, media_type="text/calendar; charset=utf-8", headers={"Cache-Control": "no-store"})
 
     @app.post("/schedules/{schedule_id}/overrides")
     async def add_override(

@@ -35,6 +35,10 @@
     <button class="primary">Добавить подмену</button>
   </form>
   <div class="muted" style="font-size:13px; margin-top:6px">Время — в поясе графика ({{ sch.timezone }}).</div>
+  <details style="margin-top:10px"><summary class="muted">Подписаться из календаря (iCal)</summary>
+    <div style="margin-top:6px"><code>{{ ics[sch.id] }}</code></div>
+    <div class="muted" style="font-size:13px; margin-top:4px">Ссылка секретная: по ней видно, кто дежурит. Не публикуйте её.</div>
+  </details>
 </div>
 {% endfor %}
 {% endblock %}

@@ -26,6 +26,8 @@ class Principal:
     roles: frozenset[str] = field(default_factory=frozenset)
     # id пользователя из конфига (users[].id), если вход привязан к конкретному человеку
     user_id: str | None = None
+    # общий пароль: кто именно действует, из учётки не видно (в панели имя выбирают вручную)
+    shared: bool = False
 
 
 class AuthBackend(Protocol):
@@ -44,7 +46,7 @@ class BasicPasswordAuth:
         if not secrets.compare_digest(creds.password.encode(), self._password):
             raise HTTPException(401, "Неверный пароль", headers={"WWW-Authenticate": 'Basic realm="Dezhurka"'})
         login = creds.username or "admin"
-        return Principal(id=login, name=login, roles=frozenset({"admin"}))
+        return Principal(id=login, name=login, roles=frozenset({"admin"}), shared=True)
 
 
 async def require_principal(request: Request) -> Principal:

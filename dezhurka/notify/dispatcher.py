@@ -26,6 +26,11 @@ class MultiDispatcher:
         self.email = email if email and email.enabled else None
         # Секрет для ссылок «Беру»/«Решено» в письмах; без него письма только со ссылкой в панель
         self.link_secret = link_secret
+        # дополнительные каналы от расширений (push и т. п.)
+        self.channels: list = []
+
+    def add_channel(self, channel) -> None:
+        self.channels.append(channel)
 
     def email_actions(self, incident: Incident, user_id: str) -> list[tuple[str, str]]:
         if not self.link_secret:
@@ -71,6 +76,12 @@ class MultiDispatcher:
                 html=email_html(incident, service_name, self.public_url, reason, actions=actions),
             )
             out.append(Delivery("email", err is None, error=err or ""))
+        for ch in self.channels:
+            try:
+                out.extend(await ch.page(contact, incident, service_name, reason))
+            except Exception as e:
+                log.warning("канал %s: %s", getattr(ch, "name", "?"), e)
+                out.append(Delivery(getattr(ch, "name", "extra"), False, error=str(e)))
         return out
 
     async def team_post(self, chat_id: int, incident: Incident, service_name: str) -> list[Delivery]:
@@ -107,3 +118,8 @@ class MultiDispatcher:
                         email_body(incident, service_name, self.public_url, actions=actions),
                         html=email_html(incident, service_name, self.public_url, actions=actions),
                     )
+        for ch in self.channels:
+            try:
+                await ch.status_changed(incident, service_name, contacts)
+            except Exception as e:
+                log.info("канал %s: %s", getattr(ch, "name", "?"), e)

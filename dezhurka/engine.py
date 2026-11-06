@@ -44,6 +44,8 @@ class Engine:
         self.clock = clock
         # Один процесс, одна очередь изменений: просто и без гонок на SQLite
         self._lock = asyncio.Lock()
+        # подписчики на действия людей: async (kind, incident_id, actor)
+        self.on_action: list = []
 
     # ---------- вспомогательное ----------
 
@@ -286,6 +288,7 @@ class Engine:
                 self._event(incident, "acknowledged", "Взял в работу", actor)
                 await session.commit()
             await self._broadcast_status(incident_id)
+            await self._emit("acknowledged", incident_id, actor)
             return incident
 
     async def resolve(self, incident_id: int, actor: str) -> Incident:
@@ -300,7 +303,15 @@ class Engine:
                 self._event(incident, "resolved", "Отметил решённым", actor)
                 await session.commit()
             await self._broadcast_status(incident_id)
+            await self._emit("resolved", incident_id, actor)
             return incident
+
+    async def _emit(self, kind: str, incident_id: int, actor: str) -> None:
+        for cb in self.on_action:
+            try:
+                await cb(kind, incident_id, actor)
+            except Exception:
+                log.exception("подписчик on_action упал")
 
     async def _broadcast_status(self, incident_id: int) -> None:
         async with self.sessions() as session:

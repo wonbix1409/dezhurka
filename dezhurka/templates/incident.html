@@ -10,8 +10,10 @@
 
 {% if inc.status != 'resolved' %}
 <form class="inline card" style="padding:12px 14px" method="post">
+  {% if principal and principal.shared %}
   <label class="muted" for="actor">Действую как</label>
   <select id="actor" name="actor">{% for u in config.users %}<option value="{{ u.id }}">{{ u.name }}</option>{% endfor %}</select>
+  {% endif %}
   {% if inc.status == 'triggered' %}<button class="primary" formaction="/incidents/{{ inc.id }}/ack">Беру в работу</button>{% endif %}
   <button formaction="/incidents/{{ inc.id }}/resolve">Решено</button>
 </form>

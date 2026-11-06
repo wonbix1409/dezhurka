@@ -29,6 +29,7 @@
   nav { display: flex; gap: 18px; }
   nav a { text-decoration: none; color: var(--muted); }
   nav a.on, nav a:hover { color: var(--ink); }
+  .who { margin-left: auto; color: var(--muted); font-size: 14px; }
   main { max-width: 1080px; margin: 0 auto; padding: 24px 16px 64px; }
   h1 { font-size: 22px; margin: 0 0 16px; letter-spacing: -.01em; }
   h2 { font-size: 15px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 32px 0 10px; font-weight: 600; }
@@ -73,8 +74,11 @@
     <a href="/" class="{% if active == 'index' %}on{% endif %}">Инциденты</a>
     <a href="/schedules" class="{% if active == 'schedules' %}on{% endif %}">Графики</a>
     <a href="/people" class="{% if active == 'people' %}on{% endif %}">Люди</a>
+    {% for n in nav_items or [] %}<a href="{{ n.href }}" class="{% if active == n.key %}on{% endif %}">{{ n.label }}</a>{% endfor %}
     <a href="/api/docs">API</a>
-  </nav>{% endif %}
+  </nav>
+  {% if principal and not principal.shared %}<div class="who">{{ principal.name }}{% if logout_url %} · <a href="{{ logout_url }}">выйти</a>{% endif %}</div>{% endif %}
+  {% endif %}
 </div></header>
 <main>
 {% for w in channel_warnings or [] %}<div class="err">{{ w }}</div>{% endfor %}
