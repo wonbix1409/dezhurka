@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% set active = 'index' %}
+{% macro row(i) %}
+<tr>
+  <td class="id">#{{ i.id }}</td>
+  <td><a href="/incidents/{{ i.id }}">{{ i.title }}</a>
+    <div class="muted" style="font-size:13px">{{ config.service(i.service_id).name if config.service(i.service_id) else i.service_id }} · {{ i.source }}{% if i.alert_count > 1 %} · повторов {{ i.alert_count }}{% endif %}</div></td>
+  <td><span class="pill st-{{ i.status }}">{{ STATUS[i.status] }}</span>
+    {% if i.acknowledged_by and i.status == 'acknowledged' %}<div class="muted" style="font-size:13px">{{ i.acknowledged_by }}</div>{% endif %}</td>
+  <td class="muted hide-sm">{{ fmt(i.created_at) }}</td>
+</tr>
+{% endmacro %}
+{% block body %}
+<div class="grid">
+  {% for sch, shift, user in on_call %}
+  <div class="card stat">
+    <div class="k">Дежурит · {{ sch.name or sch.id }}</div>
+    <div class="v">{{ user.name if user else shift.user_id }}</div>
+    <div class="s">до {{ fmt(shift.end, sch.timezone) }}{% if shift.is_override %} · подмена{% endif %}</div>
+  </div>
+  {% endfor %}
+  <div class="card stat"><div class="k">Инцидентов за 7 дней</div><div class="v">{{ week }}</div><div class="s">открыто сейчас: {{ open_incidents|length }}</div></div>
+  <div class="card stat"><div class="k">Среднее время реакции</div><div class="v">{{ mtta }}</div><div class="s">MTTA за 7 дней</div></div>
+</div>
+
+<h2>Открытые</h2>
+<div class="card wrap">
+  {% if open_incidents %}
+  <table><tr><th>№</th><th>Инцидент</th><th>Статус</th><th class="hide-sm">Начался</th></tr>
+    {% for i in open_incidents %}{{ row(i) }}{% endfor %}</table>
+  {% else %}<div class="empty">Открытых инцидентов нет — спокойного дежурства.</div>{% endif %}
+</div>
+
+<h2>Недавно решённые</h2>
+<div class="card wrap">
+  {% if recent %}
+  <table><tr><th>№</th><th>Инцидент</th><th>Статус</th><th class="hide-sm">Начался</th></tr>
+    {% for i in recent %}{{ row(i) }}{% endfor %}</table>
+  {% else %}<div class="empty">Пока пусто.</div>{% endif %}
+</div>
+{% endblock %}

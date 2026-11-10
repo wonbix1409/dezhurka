@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+data/
+.env
+config.yaml
+deploy/alertmanager/alertmanager.yml
+build/
+*.egg-info/
+dist/

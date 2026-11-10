@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dezhurka"
+version = "0.2.0"
+description = "Дежурства и эскалации для ИТ-команд: Telegram, почта, Alertmanager, Grafana, Zabbix"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { file = "LICENSE" }
+authors = [{ name = "Dezhurka" }]
+# Те же зависимости, что в requirements.txt (по нему собирается Docker-образ)
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "sqlalchemy[asyncio]>=2.0.30",
+    "alembic>=1.13",
+    "aiosqlite>=0.20",
+    "asyncpg>=0.29",
+    "httpx[socks]>=0.27",
+    "jinja2>=3.1",
+    "pyyaml>=6.0",
+    "pydantic>=2.7",
+    "python-multipart>=0.0.9",
+]
+
+[project.urls]
+Source = "https://github.com/wonbix1409/dezhurka"
+
+[tool.setuptools.packages.find]
+include = ["dezhurka*"]
+
+[tool.setuptools.package-data]
+dezhurka = ["templates/*.html", "migrations/script.py.mako", "migrations/versions/*.py"]

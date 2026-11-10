@@ -1,0 +1,29 @@
+groups:
+  - name: demo
+    rules:
+      - alert: InstanceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Цель мониторинга недоступна"
+          description: "{{ $labels.job }} на {{ $labels.instance }} не отвечает больше минуты."
+
+      - alert: HighCPU
+        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100) > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU выше 85%"
+          description: "Загрузка процессора {{ $value | printf \"%.0f\" }}% уже 5 минут."
+
+      - alert: DiskAlmostFull
+        expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"}) * 100 < 10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Свободно меньше 10% диска"
+          description: "{{ $labels.mountpoint }}: осталось {{ $value | printf \"%.1f\" }}%."

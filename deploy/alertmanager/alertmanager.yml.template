@@ -1,0 +1,13 @@
+# Шаблон: setup.sh подставляет ключ интеграции и сохраняет как alertmanager.yml
+route:
+  receiver: dezhurka
+  group_by: [alertname, instance]
+  group_wait: 10s
+  group_interval: 1m
+  repeat_interval: 4h
+
+receivers:
+  - name: dezhurka
+    webhook_configs:
+      - url: http://dezhurka:8000/api/v1/ingest/__INTEGRATION_KEY__/alertmanager
+        send_resolved: true

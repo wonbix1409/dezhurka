@@ -1,0 +1,37 @@
+Лицензионные условия «Дежурка»
+Copyright (c) 2026 авторы проекта «Дежурка». Все права защищены.
+
+Исходный код этого репозитория опубликован для ознакомления. Он не является
+открытым программным обеспечением (open-source).
+
+1. Разрешено без договора:
+   а) просматривать исходный код;
+   б) устанавливать и запускать программу на тестовом (непродуктивном) стенде
+      в целях оценки — не более 30 дней с даты первой установки.
+
+2. Запрещено без отдельного письменного договора с правообладателем:
+   а) использование программы в продуктивной среде, в том числе для
+      уведомления о реальных инцидентах;
+   б) использование дольше срока, указанного в п. 1 «б»;
+   в) копирование, изменение, распространение, сублицензирование, продажа
+      программы или её частей, а также предоставление к ней доступа третьим
+      лицам, в том числе как облачного сервиса;
+   г) создание производных программ на основе этого кода.
+
+3. Программа предоставляется «как есть», без каких-либо гарантий. Правообладатель
+   не отвечает за убытки, возникшие в результате её использования.
+
+4. По вопросам лицензирования: через Issues этого репозитория на GitHub.
+
+---
+
+"Dezhurka" license terms
+Copyright (c) 2026 the Dezhurka authors. All rights reserved.
+
+This source code is published for review only and is not open-source software.
+Without a separate written agreement with the copyright holder you may only view
+the code and run it in a non-production environment for evaluation for up to
+30 days. Any production use, copying, modification, distribution, resale,
+hosting for third parties or derivative works require a written agreement.
+The software is provided "as is", without warranty of any kind.
+Licensing: open an issue in this GitHub repository.
