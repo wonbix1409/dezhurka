@@ -26,6 +26,19 @@ services:
     ports:
       - "8000:8000"
 
+  # Прокси только для Telegram Bot API (профиль tg-proxy): Xray в контейнере, наружу порт не открыт.
+  # Пускает через VPN-узлы лишь домены Telegram, остальное отбрасывает.
+  # Конфиг: python3 deploy/tg-proxy/make-config.py tg-proxy.links > tg-proxy.json
+  #   chown 65532:65532 tg-proxy.json && chmod 600 tg-proxy.json  (образ работает от uid 65532)
+  # В .env: DEZHURKA_TELEGRAM_PROXY=socks5h://tg-proxy:1080
+  tg-proxy:
+    profiles: [tg-proxy]
+    image: ghcr.io/xtls/xray-core:26.10.31
+    restart: unless-stopped
+    command: ["run", "-c", "/etc/xray/config.json"]
+    volumes:
+      - ../tg-proxy.json:/etc/xray/config.json:ro
+
   prometheus:
     profiles: [monitoring]
     image: prom/prometheus:v2.55.1

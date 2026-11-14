@@ -8,3 +8,5 @@ deploy/alertmanager/alertmanager.yml
 build/
 *.egg-info/
 dist/
+tg-proxy.json
+tg-proxy.links

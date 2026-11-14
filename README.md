@@ -75,6 +75,25 @@ C="docker compose -f deploy/docker-compose.stack.yml --env-file .env --profile m
 $C rm -sf prometheus alertmanager node-exporter grafana zabbix-server zabbix-web zabbix-agent zabbix-db
 ```
 
+## Telegram через прокси в контейнере
+
+Если api.telegram.org недоступен напрямую, Bot API можно пустить через свой VLESS+Reality-узел.
+Xray работает в отдельном контейнере стека (профиль `tg-proxy`), порт наружу не публикуется,
+и через узлы пропускаются только домены Telegram — остальное прокси отбрасывает.
+Через прокси «Дежурка» ходит только в Bot API; почта и вебхуки идут напрямую.
+
+```bash
+nano tg-proxy.links                     # ссылки vless://… из панели, по одной на строку
+chmod 600 tg-proxy.links
+python3 deploy/tg-proxy/make-config.py tg-proxy.links > tg-proxy.json
+chown 65532:65532 tg-proxy.json && chmod 600 tg-proxy.json   # образ Xray работает не от root (uid 65532)
+echo 'DEZHURKA_TELEGRAM_PROXY=socks5h://tg-proxy:1080' >> .env   # или замените старую строку
+docker compose -f deploy/docker-compose.stack.yml --env-file .env --profile tg-proxy up -d
+```
+
+Несколько ссылок — Xray сам выбирает живой узел. `tg-proxy.links` и `tg-proxy.json` содержат ключи
+и в git не попадают. `update.sh` сохраняет профиль, если контейнер `tg-proxy` существует.
+
 ## Продакшен
 
 **HTTPS.** Telegram-кнопки «Беру» и вебхуки должны ходить по https, поэтому поставьте перед

@@ -10,6 +10,8 @@ PROFILE=()
 # и демо-мониторинг (Prometheus/Grafana), если он не был удалён
 docker ps -a --format '{{.Names}}' | grep -q 'prometheus' && PROFILE+=(--profile monitoring)
 docker ps -a --format '{{.Names}}' | grep -q 'zabbix-server' && PROFILE+=(--profile zabbix)
+# и прокси для Telegram, если он поднят
+docker ps -a --format '{{.Names}}' | grep -q 'tg-proxy' && PROFILE+=(--profile tg-proxy)
 COMPOSE=(docker compose -f deploy/docker-compose.stack.yml --env-file .env "${PROFILE[@]}")
 
 # Репозиторий клонирован обычным пользователем, а скрипт идёт через sudo
