@@ -7,7 +7,9 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 # Тот же набор сервисов, что поднял setup.sh: Zabbix, если его контейнеры есть
 PROFILE=()
-docker ps -a --format '{{.Names}}' | grep -q 'zabbix-server' && PROFILE=(--profile zabbix)
+# и демо-мониторинг (Prometheus/Grafana), если он не был удалён
+docker ps -a --format '{{.Names}}' | grep -q 'prometheus' && PROFILE+=(--profile monitoring)
+docker ps -a --format '{{.Names}}' | grep -q 'zabbix-server' && PROFILE+=(--profile zabbix)
 COMPOSE=(docker compose -f deploy/docker-compose.stack.yml --env-file .env "${PROFILE[@]}")
 
 # Репозиторий клонирован обычным пользователем, а скрипт идёт через sudo

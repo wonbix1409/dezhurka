@@ -7,7 +7,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
-COMPOSE=(docker compose -f deploy/docker-compose.stack.yml --env-file .env)
+COMPOSE=(docker compose -f deploy/docker-compose.stack.yml --env-file .env --profile monitoring)
 WITH_ZABBIX=0
 [[ "${1:-}" == "--zabbix" ]] && WITH_ZABBIX=1 && COMPOSE+=(--profile zabbix)
 

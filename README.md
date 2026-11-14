@@ -66,6 +66,15 @@ sudo bash deploy/setup.sh --zabbix   # с Zabbix: 2 vCPU, 4 ГБ RAM
 Скрипт ставит Docker, генерирует пароли в `.env`, спрашивает токен бота (скрытым вводом), имя
 и часовой пояс, а в конце печатает адреса и пароли. Если Docker Hub недоступен, он включает зеркало.
 
+Демо-мониторинг (Prometheus, Alertmanager, node-exporter, Grafana) живёт в профиле `monitoring`,
+Zabbix — в профиле `zabbix`. Если он больше не нужен, удалите его контейнеры — `update.sh`
+дальше будет поднимать только «Дежурку»:
+
+```bash
+C="docker compose -f deploy/docker-compose.stack.yml --env-file .env --profile monitoring --profile zabbix"
+$C rm -sf prometheus alertmanager node-exporter grafana zabbix-server zabbix-web zabbix-agent zabbix-db
+```
+
 ## Продакшен
 
 **HTTPS.** Telegram-кнопки «Беру» и вебхуки должны ходить по https, поэтому поставьте перед

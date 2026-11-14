@@ -1,7 +1,9 @@
 # Демо-стенд: «Дежурка» + Prometheus + Alertmanager + Grafana (+ Zabbix по профилю).
 # Запускается через deploy/setup.sh, вручную:
+#   docker compose -f deploy/docker-compose.stack.yml --env-file .env --profile monitoring up -d --build
+#   docker compose -f deploy/docker-compose.stack.yml --env-file .env --profile monitoring --profile zabbix up -d --build
+# Только «Дежурка», без демо-мониторинга (Prometheus/Grafana/Zabbix):
 #   docker compose -f deploy/docker-compose.stack.yml --env-file .env up -d --build
-#   docker compose -f deploy/docker-compose.stack.yml --env-file .env --profile zabbix up -d --build
 #
 # Наружу открыты только «Дежурка» (8000), Grafana (3000) и веб Zabbix (8080) — у всех есть логин.
 # Prometheus и Alertmanager слушают только localhost: смотреть их через SSH-туннель.
@@ -25,6 +27,7 @@ services:
       - "8000:8000"
 
   prometheus:
+    profiles: [monitoring]
     image: prom/prometheus:v2.55.1
     restart: unless-stopped
     command:
@@ -41,6 +44,7 @@ services:
       - "127.0.0.1:9090:9090"
 
   alertmanager:
+    profiles: [monitoring]
     image: prom/alertmanager:v0.27.0
     restart: unless-stopped
     command:
@@ -52,6 +56,7 @@ services:
       - "127.0.0.1:9093:9093"
 
   node-exporter:
+    profiles: [monitoring]
     image: prom/node-exporter:v1.8.2
     restart: unless-stopped
     command:
@@ -61,6 +66,7 @@ services:
       - /:/host:ro,rslave
 
   grafana:
+    profiles: [monitoring]
     image: grafana/grafana:11.3.0
     restart: unless-stopped
     environment:
