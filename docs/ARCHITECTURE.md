@@ -84,7 +84,7 @@ sequenceDiagram
 |---|---|---|
 | Alertmanager, Grafana | `fingerprint` алерта | `status: resolved` (нужен `send_resolved: true`) |
 | Zabbix | `{EVENT.ID}` | `{EVENT.VALUE} = 0` в Recovery operations |
-| generic | поле `dedup_key` (иначе хэш заголовка) | `"action": "resolve"` |
+| generic | поле `dedup_key` (иначе хэш заголовка) | `"action": "resolve"`; `"action": "notice"` — сообщение без инцидента |
 
 Эскалация: шаги политики идут по очереди; на каждом шаге зовутся цели (человек или текущий дежурный
 по графику), затем ждём `escalate_after_min`. После последнего шага политика повторяется `repeat` раз.

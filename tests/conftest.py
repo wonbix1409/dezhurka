@@ -52,7 +52,14 @@ class FakeDispatcher:
         self.pages: list[tuple[str, int, str]] = []
         self.team_posts: list[tuple[int, int]] = []
         self.status_changes: list[tuple[int, str, list, list[str]]] = []
+        self.notices: list[tuple[str, str, str]] = []
         self._msg = 1000
+
+    async def notice(self, contact, service_name, title, details=""):
+        self.notices.append((contact.user_id, service_name, title))
+        if contact.telegram_chat_id:
+            return [Delivery("telegram", True, contact.telegram_chat_id, 1)]
+        return [Delivery("email", True)] if contact.email else []
 
     async def page(self, contact, incident, service_name, reason):
         self.pages.append((contact.user_id, incident.id, reason))

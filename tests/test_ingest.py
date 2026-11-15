@@ -1,6 +1,6 @@
 import pytest
 
-from dezhurka.ingest import RESOLVE, TRIGGER, IngestError, parse_alertmanager, parse_generic, parse_zabbix
+from dezhurka.ingest import NOTICE, RESOLVE, TRIGGER, IngestError, parse_alertmanager, parse_generic, parse_zabbix
 
 AM = {
     "version": "4",
@@ -49,6 +49,7 @@ def test_generic():
     a = parse_generic({"title": "Бэкап не прошёл", "dedup_key": "backup", "severity": "warning"})[0]
     assert a.action == TRIGGER and a.dedup_key == "gen:backup" and a.severity == "warning"
     assert parse_generic({"title": "x", "dedup_key": "backup", "action": "resolve"})[0].action == RESOLVE
+    assert parse_generic({"title": "x", "action": "notice"})[0].action == NOTICE
     with pytest.raises(IngestError):
         parse_generic({"dedup_key": "x"})
     with pytest.raises(IngestError):

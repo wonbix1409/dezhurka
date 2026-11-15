@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import selectinload
 
 from .config import Config, EscalationStep, Service
-from .ingest import RESOLVE, Alert
+from .ingest import NOTICE, RESOLVE, Alert
 from .models import Incident, IncidentEvent, ScheduleOverride, SentMessage, Status, TelegramLink, utcnow
 from .notify.base import Contact, Dispatcher
 from .schedule import DbOverride, on_call
@@ -23,7 +23,7 @@ log = logging.getLogger("dezhurka.engine")
 @dataclass
 class IngestResult:
     incident_id: int
-    action: str  # created | deduplicated | resolved | ignored
+    action: str  # created | deduplicated | resolved | notified | ignored
 
 
 class ActionError(Exception):
@@ -105,6 +105,8 @@ class Engine:
         return results
 
     async def _ingest_one(self, service: Service, alert: Alert) -> IngestResult:
+        if alert.action == NOTICE:
+            return await self._notice(service, alert)
         now = self.clock()
         to_page: Incident | None = None
         changed: Incident | None = None
@@ -159,6 +161,29 @@ class Engine:
         if changed is not None:
             await self._broadcast_status(changed.id)
         return result
+
+    async def _notice(self, service: Service, alert: Alert) -> IngestResult:
+        """Сообщение «для сведения» (например, «бэкап готов»): уходит тем, кого политика сервиса
+        зовёт первым шагом. Инцидент не создаётся, эскалации и повторов нет."""
+        policy = self.config.policy(service.escalation_policy)
+        if policy is None or not policy.steps:
+            return IngestResult(0, "ignored")
+        send = getattr(self.dispatcher, "notice", None)
+        if send is None:
+            return IngestResult(0, "ignored")
+        sent = 0
+        async with self.sessions() as session:
+            for uid in await self._step_users(session, policy.steps[0], self.clock()):
+                contact = await self.contact(session, uid)
+                if contact is None:
+                    continue
+                try:
+                    deliveries = await send(contact, service.name, alert.title, alert.details)
+                except Exception:
+                    log.exception("ошибка отправки сообщения %s", uid)
+                    continue
+                sent += sum(1 for d in deliveries if d.ok)
+        return IngestResult(0, "notified" if sent else "ignored")
 
     # ---------- эскалации ----------
 

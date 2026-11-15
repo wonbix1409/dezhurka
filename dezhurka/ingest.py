@@ -15,6 +15,7 @@ from typing import Any
 
 TRIGGER = "trigger"
 RESOLVE = "resolve"
+NOTICE = "notice"  # просто сообщение: без инцидента и эскалации
 
 _SEVERITY_ALIASES = {
     # Zabbix
@@ -124,8 +125,10 @@ def parse_generic(payload: dict[str, Any]) -> list[Alert]:
         action = RESOLVE
     elif action in {"trigger", "firing", "problem"}:
         action = TRIGGER
+    elif action in {"notice", "info"}:
+        action = NOTICE
     else:
-        raise IngestError("generic: action должен быть trigger или resolve")
+        raise IngestError("generic: action должен быть trigger, resolve или notice")
     key = payload.get("dedup_key") or "t:" + hashlib.sha256(str(title).encode()).hexdigest()[:16]
     return [
         Alert(

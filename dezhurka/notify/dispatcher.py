@@ -1,6 +1,7 @@
 """Рассылка по всем включённым каналам: Telegram и почта."""
 from __future__ import annotations
 
+import html
 import logging
 
 from ..action_links import make_token
@@ -82,6 +83,27 @@ class MultiDispatcher:
             except Exception as e:
                 log.warning("канал %s: %s", getattr(ch, "name", "?"), e)
                 out.append(Delivery(getattr(ch, "name", "extra"), False, error=str(e)))
+        return out
+
+    async def notice(self, contact: Contact, service_name: str, title: str, details: str = "") -> list[Delivery]:
+        """Сообщение для сведения, без кнопок и без инцидента. Telegram, если привязан, иначе почта."""
+        out: list[Delivery] = []
+        if self.telegram and contact.telegram_chat_id:
+            text = f"<b>{html.escape(service_name)}</b>\n{html.escape(title)}"
+            if details:
+                text += f"\n\n{html.escape(details[:3000])}"
+            try:
+                msg = await self.telegram.call(
+                    "sendMessage", chat_id=contact.telegram_chat_id, text=text, parse_mode="HTML",
+                    link_preview_options={"is_disabled": True}, disable_notification=False,
+                )
+                out.append(Delivery("telegram", True, contact.telegram_chat_id, msg["message_id"]))
+            except Exception as e:
+                log.warning("telegram %s: %s", contact.telegram_chat_id, e)
+                out.append(Delivery("telegram", False, contact.telegram_chat_id, error=str(e)))
+        if self.email and contact.email and not any(d.ok for d in out):
+            err = await self.email.send(contact.email, f"{service_name}: {title}", f"{title}\n\n{details}".strip())
+            out.append(Delivery("email", err is None, error=err or ""))
         return out
 
     async def team_post(self, chat_id: int, incident: Incident, service_name: str) -> list[Delivery]:

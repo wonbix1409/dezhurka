@@ -183,6 +183,9 @@ curl -X POST https://dezhurka.example.ru/api/v1/ingest/<integration_key>/generic
 
 # закрыть:
 curl ... -d '{"title": "Ночной бэкап", "dedup_key": "backup-db1", "action": "resolve"}'
+
+# просто сообщить (без инцидента и эскалации) — получат люди первого шага политики:
+curl ... -d '{"title": "Ночной бэкап готов", "details": "5 файлов, 42 МБ", "action": "notice"}'
 ```
 
 ## Как устроены эскалации

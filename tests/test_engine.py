@@ -1,7 +1,7 @@
 import pytest
 
 from dezhurka.engine import ActionError
-from dezhurka.ingest import RESOLVE, TRIGGER, Alert
+from dezhurka.ingest import NOTICE, RESOLVE, TRIGGER, Alert
 from dezhurka.models import Incident, ScheduleOverride, Status
 
 
@@ -108,3 +108,13 @@ def test_manual_resolve(env):
     assert inc.status == Status.RESOLVED and inc.resolved_by == "Пётр"
     with pytest.raises(ActionError):
         run(eng.resolve(iid, "Пётр"))
+
+
+def test_notice_messages_first_step_without_incident(env):
+    eng, disp, clock, run = env
+    svc = eng.config.service("api")
+    [res] = run(eng.ingest(svc, [Alert(action=NOTICE, dedup_key="n", title="Бэкап готов")]))
+    assert res.action == "notified" and res.incident_id == 0
+    # 4 ноября дежурит Анна — ей и сообщение; инцидентов, страниц и постов в общий чат нет
+    assert disp.notices == [("anna", "Публичный API", "Бэкап готов")]
+    assert disp.pages == [] and disp.team_posts == []
